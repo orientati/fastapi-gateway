@@ -12,8 +12,7 @@ class UpdateUserRequest(BaseModel):
     email: str | None = None
     name: str | None = None
     surname: str | None = None
-    username: str | None = None
-    
+
 class UpdateUserResponse(BaseModel):
     message: str = "User updated successfully"
     

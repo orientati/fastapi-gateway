@@ -41,7 +41,6 @@ async def change_password(passwords: ChangePasswordRequest, user_id: int) -> boo
 async def update_user(user_id: int, new_data: UpdateUserRequest) -> UpdateUserResponse:
     try:
         params = HttpParams()
-        params.add_param("username", new_data.username) if new_data.username else None
         params.add_param("email", new_data.email) if new_data.email else None
         params.add_param("name", new_data.name) if new_data.name else None
         params.add_param("surname", new_data.surname) if new_data.surname else None
@@ -87,7 +86,6 @@ async def update_from_rabbitMQ(message):
                 if user is None:
                     user = User(
                         id=data["id"],
-                        username=data["username"],
                         email=data["email"],
                         name=data["name"],
                         surname=data["surname"],
@@ -99,7 +97,6 @@ async def update_from_rabbitMQ(message):
                     db.commit()
                     logger.error(f"User with id {data['id']} not found during update. Created new user.")
                     return
-                user.username = data["username"]
                 user.email = data["email"]
                 user.name = data["name"]
                 user.surname = data["surname"]

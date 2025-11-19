@@ -10,7 +10,6 @@ class UserLogin(BaseModel):
 
 
 class UserRegistration(BaseModel):
-    username: str
     name: str
     surname: str
     email: EmailStr
@@ -19,7 +18,6 @@ class UserRegistration(BaseModel):
 
 class UserOut(BaseModel):
     id: int
-    username: str
     email: EmailStr
     created_at: datetime
     updated_at: datetime

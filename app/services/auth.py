@@ -49,6 +49,7 @@ class InvalidTokenErrorType:
     BLOCKED_SESSION = 4
     EXPIRED_SESSION = 5
 
+
 # Custom exception per invalid token
 class InvalidTokenException(OrientatiException):
     def __init__(self, message: str, error_type: int):
@@ -176,12 +177,12 @@ async def create_user_session_and_tokens(user: User) -> TokenResponse:
     db.refresh(db_session)
 
     access_token_response = await create_access_token(
-        data={"username": user.username, "user_id": user.id, "session_id": db_session.id}
+        data={"user_id": user.id, "session_id": db_session.id}
     )
     access_token = access_token_response["token"]
 
     refresh_token_response = await create_refresh_token(
-        data={"username": user.username, "user_id": user.id, "session_id": db_session.id}
+        data={"user_id": user.id, "session_id": db_session.id}
     )
     refresh_token = refresh_token_response["token"]
 
@@ -202,7 +203,7 @@ async def create_user_session_and_tokens(user: User) -> TokenResponse:
     db.commit()
     db.refresh(db_refresh_token)
 
-    return TokenResponse(status_code=HttpCodes.CREATED.value,access_token=access_token, refresh_token=refresh_token)
+    return TokenResponse(status_code=HttpCodes.CREATED.value, access_token=access_token, refresh_token=refresh_token)
 
 
 async def login(user_login: UserLogin) -> TokenResponse:
@@ -252,9 +253,9 @@ async def refresh_token(refresh_token: TokenRequest) -> TokenResponse:
             raise InvalidTokenException("Refresh token expired, Session blocked", InvalidTokenErrorType.EXPIRED_SESSION)
 
         access_token_response = await create_access_token(
-            {"username": payload["username"], "user_id": payload["user_id"], "session_id": session.id})
+            {"user_id": payload["user_id"], "session_id": session.id})
         refresh_token_response = await create_refresh_token(
-            {"username": payload["username"], "user_id": payload["user_id"], "session_id": session.id},
+            {"user_id": payload["user_id"], "session_id": session.id},
             expire_days=(
                     session.expires_at - datetime.now()).days)
         access_token = access_token_response["token"]
@@ -282,7 +283,8 @@ async def refresh_token(refresh_token: TokenRequest) -> TokenResponse:
         db.commit()
         db.refresh(db_refresh_token)
 
-        return TokenResponse(status_code=HttpCodes.CREATED.value,access_token=access_token, refresh_token=refresh_token)
+        return TokenResponse(status_code=HttpCodes.CREATED.value, access_token=access_token,
+                             refresh_token=refresh_token)
     except (InvalidTokenException, OrientatiException) as e:
         raise e
     except Exception as e:
@@ -319,24 +321,23 @@ async def logout(access_token: TokenRequest) -> UserLogout:
     except Exception as e:
         raise OrientatiException(url="/auth/logout", exc=e)
 
+
 async def register(user: UserRegistration) -> TokenResponse:
     try:
         hashed_password = pwd_context.hash(user.password)
 
         create_user_response = await create_new_user(
-            data={"username": user.username, "name": user.name, "surname": user.surname, "email": user.email,
+            data={"name": user.name, "surname": user.surname, "email": user.email,
                   "hashed_password": user.password})
         if not create_user_response or "id" not in create_user_response:
-            raise OrientatiException(details={"message" : "User creation failed"},
-                                      url="/auth/register")
+            raise OrientatiException(details={"message": "User creation failed"},
+                                     url="/auth/register")
 
         # Login automatico dopo la registrazione
-        # return await login(UserLogin(username=user.username, password=user.password))
         # richiamo direttamente la creazione della sessione e dei token, senza leggere l'utente dal DB
         db = next(get_db())
         user = User(
             id=create_user_response["id"],
-            username=user.username,
             email=user.email,
             hashed_password=hashed_password,
             created_at=create_user_response["created_at"],
@@ -350,6 +351,7 @@ async def register(user: UserRegistration) -> TokenResponse:
         raise e
     except Exception as e:
         raise OrientatiException(url="/auth/register", exc=e)
+
 
 # TODO: Aggiungere job per pulizia sessioni e token scaduti
 async def validate_session(access_token: str) -> None:
@@ -382,8 +384,9 @@ async def validate_session(access_token: str) -> None:
                 db.commit()
                 raise InvalidTokenException("Access token expired", InvalidTokenErrorType.EXPIRED_SESSION)
             else:
-                raise InvalidTokenException("Access token is of an expired session", InvalidTokenErrorType.EXPIRED_SESSION)
-    except (InvalidTokenException, OrientatiException ) as e:
+                raise InvalidTokenException("Access token is of an expired session",
+                                            InvalidTokenErrorType.EXPIRED_SESSION)
+    except (InvalidTokenException, OrientatiException) as e:
         raise e
     except Exception as e:
         raise OrientatiException(url="/auth/validate_session", exc=e)
