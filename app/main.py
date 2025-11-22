@@ -8,6 +8,7 @@ import sentry_sdk
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
+from sentry_sdk.integrations.httpx import HttpxIntegration
 
 from app.api.v1.routes import auth, users, school, materie, indirizzi, citta
 from app.core.config import settings
@@ -28,9 +29,11 @@ sentry_sdk.init(
     profile_lifecycle="trace",
     profiles_sample_rate=1.0,
     enable_logs=True,
+    integrations=[HttpxIntegration()],
     release=settings.SENTRY_RELEASE
 )
-sentry_sdk.set_tag("service", "gateway")
+
+sentry_sdk.set_tag("service.name", "fastapi-gateway")
 
 logger = None
 
