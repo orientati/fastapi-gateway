@@ -21,9 +21,16 @@ import_models()  # Importo i modelli perché siano disponibili per le relazioni 
 
 sentry_sdk.init(
     dsn=settings.SENTRY_DSN,
+    environment=settings.ENVIRONMENT,
     send_default_pii=True,
-    release=settings.SENTRY_RELEASE,
+    enable_tracing=True,
+    profile_session_sample_rate=1.0,
+    profile_lifecycle="trace",
+    profiles_sample_rate=1.0,
+    enable_logs=True,
+    release=settings.SENTRY_RELEASE
 )
+sentry_sdk.set_tag("service", "gateway")
 
 logger = None
 
