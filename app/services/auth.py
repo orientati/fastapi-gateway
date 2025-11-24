@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 
-from fastapi import HTTPException
 from passlib.context import CryptContext
 
 from app.core.config import settings
@@ -390,3 +389,24 @@ async def validate_session(access_token: str) -> None:
         raise e
     except Exception as e:
         raise OrientatiException(url="/auth/validate_session", exc=e)
+
+
+async def get_session_id_from_token(access_token: str) -> str:
+    """Estrae l'ID della sessione dal token di accesso.
+
+    Args:
+        access_token (str): Il token di accesso.
+
+    Raises:
+        InvalidTokenException: Se il token di accesso non è valido.
+
+    Returns:
+        str: L'ID della sessione associata al token di accesso.
+    """
+    try:
+        payload = await verify_token(access_token)
+        if not payload or not payload["verified"]:
+            raise InvalidTokenException("Invalid access token", InvalidTokenErrorType.INVALID_TOKEN)
+        return payload["session_id"]
+    except Exception as e:
+        raise e
