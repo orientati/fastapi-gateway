@@ -23,6 +23,7 @@ sentry_sdk.init(
     dsn=settings.SENTRY_DSN,
     send_default_pii=True,
     release=settings.SENTRY_RELEASE,
+
 )
 
 logger = None
