@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from app.core.logging import get_logger
@@ -112,6 +112,31 @@ async def delete_user(user_id: int, request: Request):
         token = token.replace("Bearer ", "").strip()
         await auth.verify_token(token)
         return await users.delete_user(user_id)
+    except OrientatiException as e:
+        return JSONResponse(
+            status_code=e.status_code,
+            content={
+                "message": e.message,
+                "details": e.details,
+                "url": e.url
+            }
+        )
+
+
+# funzione che restituisce se l'utente che la sta chiamando ha la email verificata
+@router.get("/email_status")
+async def email_status(request: Request):
+    try:
+        token = request.headers.get("Authorization")
+        if not token:
+            raise OrientatiException(status_code=HttpCodes.UNAUTHORIZED, message="Missing Authorization header")
+        status = users.get_email_status_from_token(token)
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status": "verified" if status else "not verified",
+            }
+        )
     except OrientatiException as e:
         return JSONResponse(
             status_code=e.status_code,

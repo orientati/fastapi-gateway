@@ -8,6 +8,7 @@ import sentry_sdk
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
+from sentry_sdk.integrations.httpx import HttpxIntegration
 
 from app.api.v1.routes import auth, users, school, materie, indirizzi, citta
 from app.core.config import settings
@@ -21,10 +22,18 @@ import_models()  # Importo i modelli perché siano disponibili per le relazioni 
 
 sentry_sdk.init(
     dsn=settings.SENTRY_DSN,
+    environment=settings.ENVIRONMENT,
     send_default_pii=True,
-    release=settings.SENTRY_RELEASE,
-
+    enable_tracing=True,
+    profile_session_sample_rate=1.0,
+    profile_lifecycle="trace",
+    profiles_sample_rate=1.0,
+    enable_logs=True,
+    integrations=[HttpxIntegration()],
+    release=settings.SENTRY_RELEASE
 )
+
+sentry_sdk.set_tag("service.name", "fastapi-gateway")
 
 logger = None
 

@@ -1,13 +1,16 @@
 import json
+from datetime import datetime
 
 from passlib.context import CryptContext
 
 from app.core.logging import get_logger
-from app.schemas.users import ChangePasswordRequest, ChangePasswordResponse, UpdateUserRequest, UpdateUserResponse, DeleteUserResponse
-from app.services.http_client import OrientatiException, HttpMethod, HttpUrl, HttpParams, send_request
 from app.db.session import get_db
+from app.models.session import Session
 from app.models.user import User
-from datetime import datetime
+from app.schemas.users import ChangePasswordRequest, UpdateUserRequest, UpdateUserResponse, \
+    DeleteUserResponse
+from app.services.auth import get_session_id_from_token
+from app.services.http_client import OrientatiException, HttpMethod, HttpUrl, HttpParams, send_request
 
 logger = get_logger(__name__)
 
@@ -16,6 +19,7 @@ pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 RABBIT_DELETE_TYPE = "DELETE"
 RABBIT_UPDATE_TYPE = "UPDATE"
 RABBIT_CREATE_TYPE = "CREATE"
+
 
 async def change_password(passwords: ChangePasswordRequest, user_id: int) -> bool:
     try:
@@ -55,6 +59,7 @@ async def update_user(user_id: int, new_data: UpdateUserRequest) -> UpdateUserRe
         raise e
     except Exception as e:
         raise OrientatiException(exc=e, url="users/update_user")
+
 
 async def delete_user(user_id: int) -> DeleteUserResponse:
     try:
@@ -117,3 +122,28 @@ async def update_from_rabbitMQ(message):
                 logger.error(f"Unsupported message type: {type}")
         except Exception as e:
             raise OrientatiException(exc=e, url="users/update_from_rabbitMQ")
+
+
+async def get_email_status_from_token(token: str):
+    try:
+        session_id = get_session_id_from_token(token)
+        db = next(get_db())
+        session = db.query(Session).filter(Session.id == session_id).first()
+        if not session:
+            raise OrientatiException(
+                status_code=404,
+                message="Not Found",
+                details={"message": "Session not found"},
+                url="users/get_email_status_from_token"
+            )
+        user = db.query(User).filter(User.id == session.user_id).first()
+        if not user:
+            raise OrientatiException(
+                status_code=404,
+                message="Not Found",
+                details={"message": "User not found"},
+                url="users/get_email_status_from_token"
+            )
+        return user.email_verified
+    except Exception as e:
+        raise e
