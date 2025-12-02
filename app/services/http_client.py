@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import traceback
 from enum import Enum
 
-import traceback
 import httpx
-from pydantic import BaseModel
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -22,6 +21,7 @@ class HttpMethod(str, Enum):
     DELETE = "DELETE"
     PATCH = "PATCH"
 
+
 class HttpCodes(int, Enum):
     OK = 200
     CREATED = 201
@@ -32,6 +32,7 @@ class HttpCodes(int, Enum):
     NOT_FOUND = 404
     CONFLICT = 409
     INTERNAL_SERVER_ERROR = 500
+
 
 class HttpUrl(str, Enum):
     TOKEN_SERVICE = settings.TOKEN_SERVICE_URL
@@ -114,7 +115,8 @@ class OrientatiException(Exception):
         exc (Exception | None): Eccezione originale, se presente.
     """
 
-    def __init__(self, message: str = "Internal Server Error", status_code: int = 500, details: dict | None = None, url: str = None, exc: Exception = None):
+    def __init__(self, message: str = "Internal Server Error", status_code: int = 500, details: dict | None = None,
+                 url: str = None, exc: Exception = None):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
@@ -126,6 +128,7 @@ class OrientatiException(Exception):
         if exc is not None:
             exc_tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
             logger.error(f"ECCEZIONE ORIGINALE:\n{exc_tb}")
+
 
 async def send_request(url: HttpUrl, method: HttpMethod, endpoint: str, _params: HttpParams = None,
                        _headers: HttpHeaders = None) -> dict:
@@ -150,7 +153,7 @@ async def send_request(url: HttpUrl, method: HttpMethod, endpoint: str, _params:
     url = f"{url.value}{API_PREFIX}{endpoint}"
     if not url.endswith("/") and _params is None:
         url += "/"
-    async with httpx.AsyncClient(timeout=5.0) as client:
+    async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
         headers = _headers.to_dict() if _headers else HttpHeaders().to_dict()
         params = _params.to_dict() if _params else {}
         try:
@@ -162,7 +165,7 @@ async def send_request(url: HttpUrl, method: HttpMethod, endpoint: str, _params:
                 case HttpMethod.PUT:
                     resp = await client.put(url, headers=headers, json=params)
                 case HttpMethod.DELETE:
-                    resp = await client.delete(url, headers=headers, json=params)
+                    resp = await client.delete(url, headers=headers)
                 case HttpMethod.PATCH:
                     resp = await client.patch(url, headers=headers, json=params)
                 case _:
@@ -185,9 +188,9 @@ async def send_request(url: HttpUrl, method: HttpMethod, endpoint: str, _params:
                 if json["details"]:
                     server_message = json["details"]
                 else:
-                    server_message = {"message":resp.text}
+                    server_message = {"message": resp.text}
             except KeyError:
-                server_message = {"message":resp.text}
+                server_message = {"message": resp.text}
 
             try:
                 if json["url"]:
@@ -196,7 +199,7 @@ async def send_request(url: HttpUrl, method: HttpMethod, endpoint: str, _params:
                 res_url = url
 
             raise OrientatiException(message=general_message, details=server_message,
-                                      url=res_url, status_code=resp.status_code)
+                                     url=res_url, status_code=resp.status_code)
 
         json_data = None
         try:
