@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     #### ROUTES              # noqa: E266
     TOKEN_SERVICE_URL: str = "http://token:8002"
     USERS_SERVICE_URL: str = "http://users:8003"
-    SCHOOL_SERVICE_URL: str = "http://school:8004"
+    SCHOOLS_SERVICE_URL: str = "http://schools:8004"
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,13 +1,16 @@
 import json
+from datetime import datetime
 
 from passlib.context import CryptContext
 
 from app.core.logging import get_logger
-from app.schemas.users import ChangePasswordRequest, ChangePasswordResponse, UpdateUserRequest, UpdateUserResponse, DeleteUserResponse
-from app.services.http_client import HttpClientException, HttpMethod, HttpUrl, HttpParams, send_request
 from app.db.session import get_db
+from app.models.session import Session
 from app.models.user import User
-from datetime import datetime
+from app.schemas.users import ChangePasswordRequest, UpdateUserRequest, UpdateUserResponse, \
+    DeleteUserResponse
+from app.services.auth import get_session_id_from_token
+from app.services.http_client import OrientatiException, HttpMethod, HttpUrl, HttpParams, send_request
 
 logger = get_logger(__name__)
 
@@ -17,12 +20,11 @@ RABBIT_DELETE_TYPE = "DELETE"
 RABBIT_UPDATE_TYPE = "UPDATE"
 RABBIT_CREATE_TYPE = "CREATE"
 
-async def change_password(passwords: ChangePasswordRequest, user_id: int) -> ChangePasswordResponse:
+
+async def change_password(passwords: ChangePasswordRequest, user_id: int) -> bool:
     try:
         old_password_hashed = pwd_context.hash(passwords.old_password)
         new_password_hashed = pwd_context.hash(passwords.new_password)
-        logger.info(f"Old: {old_password_hashed}")
-        logger.info(f"New: {new_password_hashed}")
         params = HttpParams()
         params.add_param("user_id", user_id)
         params.add_param("old_password", old_password_hashed)
@@ -34,49 +36,43 @@ async def change_password(passwords: ChangePasswordRequest, user_id: int) -> Cha
             _params=params
         )
         return True
-    except HttpClientException as e:
-        logger.error(f"Errore change_password: {e}")
-        raise
+    except OrientatiException as e:
+        raise e
     except Exception as e:
-        logger.error(f"Unexpected error during change_password: {e}")
-        raise HttpClientException("Internal Server Error", "Swiggity Swooty, U won't find my log", 500,
-                                  "users/change_password")
+        raise OrientatiException(exc=e, url="users/change_password")
 
 
 async def update_user(user_id: int, new_data: UpdateUserRequest) -> UpdateUserResponse:
     try:
         params = HttpParams()
-        params.add_param("username", new_data.username) if new_data.username else None
         params.add_param("email", new_data.email) if new_data.email else None
         params.add_param("name", new_data.name) if new_data.name else None
         params.add_param("surname", new_data.surname) if new_data.surname else None
-        response = await send_request(
+        await send_request(
             method=HttpMethod.PATCH,
             url=HttpUrl.USERS_SERVICE,
             endpoint=f"/users/{user_id}",
             _params=params
         )
         return UpdateUserResponse()
-    except HttpClientException:
-        raise
-    except Exception:
-        raise HttpClientException("Internal Server Error", "Swiggity Swooty, U won't find my log", 500,
-                                  "users/update_user")
+    except OrientatiException as e:
+        raise e
+    except Exception as e:
+        raise OrientatiException(exc=e, url="users/update_user")
+
 
 async def delete_user(user_id: int) -> DeleteUserResponse:
     try:
-        params = HttpParams()
-        response = await send_request(
+        await send_request(
             method=HttpMethod.DELETE,
             url=HttpUrl.USERS_SERVICE,
             endpoint=f"/users/{user_id}"
         )
         return DeleteUserResponse()
-    except HttpClientException:
-        raise
-    except Exception:
-        raise HttpClientException("Internal Server Error", "Swiggity Swooty, U won't find my log", 500,
-                                  "users/delete_user")
+    except OrientatiException as e:
+        raise e
+    except Exception as e:
+        raise OrientatiException(exc=e, url="users/delete_user")
 
 
 async def update_from_rabbitMQ(message):
@@ -95,7 +91,6 @@ async def update_from_rabbitMQ(message):
                 if user is None:
                     user = User(
                         id=data["id"],
-                        username=data["username"],
                         email=data["email"],
                         name=data["name"],
                         surname=data["surname"],
@@ -107,7 +102,6 @@ async def update_from_rabbitMQ(message):
                     db.commit()
                     logger.error(f"User with id {data['id']} not found during update. Created new user.")
                     return
-                user.username = data["username"]
                 user.email = data["email"]
                 user.name = data["name"]
                 user.surname = data["surname"]
@@ -126,7 +120,30 @@ async def update_from_rabbitMQ(message):
                 pass
             else:
                 logger.error(f"Unsupported message type: {type}")
-        except HttpClientException as e:
-            logger.error(f"Errore update_from_rabbitMQ: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error during update_from_rabbitMQ: {e}")
+            raise OrientatiException(exc=e, url="users/update_from_rabbitMQ")
+
+
+async def get_email_status_from_token(token: str):
+    try:
+        session_id = get_session_id_from_token(token)
+        db = next(get_db())
+        session = db.query(Session).filter(Session.id == session_id).first()
+        if not session:
+            raise OrientatiException(
+                status_code=404,
+                message="Not Found",
+                details={"message": "Session not found"},
+                url="users/get_email_status_from_token"
+            )
+        user = db.query(User).filter(User.id == session.user_id).first()
+        if not user:
+            raise OrientatiException(
+                status_code=404,
+                message="Not Found",
+                details={"message": "User not found"},
+                url="users/get_email_status_from_token"
+            )
+        return user.email_verified
+    except Exception as e:
+        raise e

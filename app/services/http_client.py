@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from enum import Enum
 
 import httpx
@@ -21,10 +22,22 @@ class HttpMethod(str, Enum):
     PATCH = "PATCH"
 
 
+class HttpCodes(int, Enum):
+    OK = 200
+    CREATED = 201
+    NO_CONTENT = 204
+    BAD_REQUEST = 400
+    UNAUTHORIZED = 401
+    FORBIDDEN = 403
+    NOT_FOUND = 404
+    CONFLICT = 409
+    INTERNAL_SERVER_ERROR = 500
+
+
 class HttpUrl(str, Enum):
     TOKEN_SERVICE = settings.TOKEN_SERVICE_URL
     USERS_SERVICE = settings.USERS_SERVICE_URL
-    SCHOOL_SERVICE = settings.SCHOOL_SERVICE_URL
+    SCHOOLS_SERVICE = settings.SCHOOLS_SERVICE_URL
 
 
 class HttpParams():
@@ -32,13 +45,14 @@ class HttpParams():
     Attributes:
         params (dict): Dizionario dei parametri della query.
     """
+
     def __init__(self, initial_params: dict | None = None):
         """Inizializza i parametri della richiesta HTTP.
 
         Args:
             initial_params (dict | None, optional): Parametri iniziali da includere nella richiesta. Defaults to None.
         """
-        if(initial_params is None):
+        if (initial_params is None):
             self.params = {}
         else:
             self.params = initial_params.copy()
@@ -91,36 +105,33 @@ class HttpHeaders():
 # Errori e risposte
 
 
-class HttpClientException(Exception):
-    """Eccezione personalizzata per errori nelle richieste HTTP.
+class OrientatiException(Exception):
+    """Eccezione personalizzata generica per l'applicazione Orientati.
     Attributes:
         status_code (int | None): Codice di stato HTTP della risposta, se disponibile.
-        server_message (str): Messaggio di errore restituito dal server.
+        message (str): Messaggio di errore generale.
+        details (dict | None): Dettaglio del messaggio di errore.
         url (str): URL della richiesta che ha causato l'errore.
+        exc (Exception | None): Eccezione originale, se presente.
     """
 
-    def __init__(self, message: str, server_message: str, status_code: int, url: str = None):
+    def __init__(self, message: str = "Internal Server Error", status_code: int = 500, details: dict | None = None,
+                 url: str = None, exc: Exception = None):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
-        self.server_message = server_message
+        self.details = details if details is not None else {"message": "Internal Server Error"}
         self.url = url
-
-
-class HttpClientResponse():
-    """Rappresenta la risposta di un client HTTP.
-    Attributes:
-        status_code (int): Codice di stato HTTP della risposta.
-        data (dict | list | str | None): Dati della risposta, se presenti.
-    """
-
-    def __init__(self, status_code: int, data: dict | list | str | None = None):
-        self.status_code = status_code
-        self.data = data
+        caller_stack = "".join(traceback.format_stack()[:-1])
+        logger.error("ERRORE!\n")
+        logger.error(f"Stack del richiamante:\n{caller_stack}")
+        if exc is not None:
+            exc_tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            logger.error(f"ECCEZIONE ORIGINALE:\n{exc_tb}")
 
 
 async def send_request(url: HttpUrl, method: HttpMethod, endpoint: str, _params: HttpParams = None,
-                       _headers: HttpHeaders = None) -> HttpClientResponse:
+                       _headers: HttpHeaders = None) -> dict:
     """Gestisce la risposta della richiesta HTTP.
 
     Ritorna HttpClientResponse o solleva HttpClientException in caso di errore.
@@ -140,7 +151,9 @@ async def send_request(url: HttpUrl, method: HttpMethod, endpoint: str, _params:
     """
 
     url = f"{url.value}{API_PREFIX}{endpoint}"
-    async with httpx.AsyncClient(timeout=5.0) as client:
+    if not url.endswith("/") and _params is None:
+        url += "/"
+    async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
         headers = _headers.to_dict() if _headers else HttpHeaders().to_dict()
         params = _params.to_dict() if _params else {}
         try:
@@ -152,32 +165,46 @@ async def send_request(url: HttpUrl, method: HttpMethod, endpoint: str, _params:
                 case HttpMethod.PUT:
                     resp = await client.put(url, headers=headers, json=params)
                 case HttpMethod.DELETE:
-                    resp = await client.delete(url, headers=headers, json=params)
+                    resp = await client.delete(url, headers=headers)
                 case HttpMethod.PATCH:
                     resp = await client.patch(url, headers=headers, json=params)
                 case _:
                     raise ValueError(f"Unsupported HTTP method: {method}")
         except httpx.HTTPError as e:
-            logger.error(f"HTTP request to {url} failed: {str(e)}")
-            raise HttpClientException("Internal Server Error", server_message="Swiggity Swoggity, U won't find my log",
-                                      url=url, status_code=500)
+            raise OrientatiException(exc=e, message="HTTP Error. Unable to fetch.", url=url)
         except Exception as e:
-            logger.error(f"Unexpected error during HTTP request to {url}: {str(e)}")
-            raise HttpClientException("Internal Server Error", server_message="Swiggity Swoggity, U won't find my log",
-                                      url=url, status_code=500)
+            raise OrientatiException(exc=e, url=url)
 
         if resp.status_code >= 400:
             json = resp.json()
-            if json["detail"]:
-                server_message = json["detail"]
-            else:
-                server_message = resp.text
-            raise HttpClientException(f"HTTP Error {resp.status_code}", server_message=server_message,
-                                      url=url, status_code=resp.status_code)
+            logger.info(json)
+
+            try:
+                general_message = json["message"]
+            except KeyError:
+                general_message = f"HTTP Error. Unable to fetch. {resp.status_code}"
+
+            try:
+                if json["details"]:
+                    server_message = json["details"]
+                else:
+                    server_message = {"message": resp.text}
+            except KeyError:
+                server_message = {"message": resp.text}
+
+            try:
+                if json["url"]:
+                    res_url = json["url"]
+            except KeyError:
+                res_url = url
+
+            raise OrientatiException(message=general_message, details=server_message,
+                                     url=res_url, status_code=resp.status_code)
 
         json_data = None
         try:
+            # I microservizi riportano i dati direttamente in un {}
             json_data = resp.json()
-        except Exception:
-            pass
-        return HttpClientResponse(status_code=resp.status_code, data=json_data)
+        except Exception as e:
+            raise OrientatiException(message="Invalid JSON response", url=url, exc=e)
+        return json_data

@@ -4,10 +4,11 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi import Query
+from fastapi.responses import JSONResponse
 
-from app.schemas.school import SchoolsList, SchoolBase
+from app.schemas.school import SchoolsList, SchoolResponse, SchoolCreate, SchoolUpdate
 from app.services import school as school_service
-from app.services.http_client import HttpClientException
+from app.services.http_client import OrientatiException
 
 router = APIRouter()
 
@@ -45,38 +46,18 @@ async def get_schools(
             order=order
         )
 
-
-
-    except HttpClientException as e:
-        raise HTTPException(
+    except OrientatiException as e:
+        return JSONResponse(
             status_code=e.status_code,
-            detail={
+            content={
                 "message": e.message,
-                "stack": e.server_message,
+                "details": e.details,
                 "url": e.url
             }
         )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "message": "Parametri non validi",
-                "stack": str(e),
-                "url": None
-            }
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Internal Server Error",
-                "stack": str(e),
-                "url": None
-            }
-        )
 
 
-@router.get("/{school_id}", response_model=SchoolBase)
+@router.get("/{school_id}", response_model=SchoolResponse)
 async def get_school(school_id: int):
     """
     Recupera i dettagli di una scuola specifica per ID.
@@ -90,24 +71,90 @@ async def get_school(school_id: int):
     try:
         school = await school_service.get_school_by_id(school_id)
         if not school:
-            raise HTTPException(status_code=404, detail="Scuola non trovata")
+            raise OrientatiException(
+                status_code=404,
+                message="School not found",
+                details={"message": f"School with ID {school_id} not found"},
+                url=f"/schools/{school_id}"
+            )
         return school
 
-    except HttpClientException as e:
-        raise HTTPException(
+
+    except OrientatiException as e:
+        return JSONResponse(
             status_code=e.status_code,
-            detail={
+            content={
                 "message": e.message,
-                "stack": e.server_message,
+                "details": e.details,
                 "url": e.url
             }
         )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Internal Server Error",
-                "stack": str(e),
-                "url": None
+
+
+@router.post("/", response_model=SchoolResponse, status_code=201)
+async def post_school(school: SchoolCreate):
+    """
+    Crea una nuova scuola.
+
+    Args:
+        school (SchoolCreate): Dati della scuola da creare
+
+    Returns:
+        dict: Dettagli della scuola creata
+    """
+    try:
+        return await school_service.create_school(school)
+    except OrientatiException as e:
+        raise HTTPException(status_code=e.status_code,
+                            detail={"message": e.message, "details": e.details, "url": e.url})
+
+
+@router.put("/{school_id}", response_model=SchoolResponse)
+async def put_school(school_id: int, school: SchoolUpdate):
+    """
+    Aggiorna i dettagli di una scuola esistente.
+
+    Args:
+        school_id (int): ID della scuola da aggiornare
+        school (SchoolUpdate): Dati aggiornati della scuola
+
+    Returns:
+        dict: Dettagli della scuola aggiornata
+    """
+    try:
+        updated_school = await school_service.update_school(school_id, school)
+        return updated_school
+    except OrientatiException as e:
+        return JSONResponse(
+            status_code=e.status_code,
+            content={
+                "message": e.message,
+                "details": e.details,
+                "url": e.url
             }
         )
+
+
+@router.delete("/{school_id}", response_model=dict)
+async def delete_school(school_id: int):
+    """
+    Elimina una scuola esistente.
+
+    Args:
+        school_id (int): ID della scuola da eliminare
+
+    Returns:
+        dict: Dettagli della scuola eliminata
+    """
+    try:
+        return await school_service.delete_school(school_id)
+    except OrientatiException as e:
+        return JSONResponse(
+            status_code=e.status_code,
+            content={
+                "message": e.message,
+                "details": e.details,
+                "url": e.url
+            }
+        )
+   

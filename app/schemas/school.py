@@ -5,7 +5,6 @@ from typing import List
 
 from pydantic import BaseModel, EmailStr
 
-
 class SchoolAddress(BaseModel):  # indirizzo di studio
     nome: str
     descrizione: str | None = None
@@ -16,32 +15,39 @@ class SchoolBase(BaseModel):
     nome: str
     tipo: str
     indirizzo: str
+    email_contatto: EmailStr
+    telefono_contatto: str
+    sito_web: str | None = None
+    descrizione: str | None = None
+
+
+class SchoolResponse(SchoolBase):
     città: str
     provincia: str
     codice_postale: str
-    email_contatto: EmailStr
-    telefono_contatto: str
     indirizzi_scuola: List[SchoolAddress] = []
-    sito_web: str | None = None
-    descrizione: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
 
 class SchoolCreate(SchoolBase):
-    pass
+    citta_id: int
 
 
 class SchoolUpdate(SchoolBase):
-    pass
+    citta_id: int
 
 
 class SchoolsList(BaseModel):
-    scuole: List[SchoolCreate]
+    status_code: int
+    scuole: List[SchoolResponse]
     total: int
     limit: int
     offset: int
-    filter_search: str
+    filter_search: str | None = None
+    filter_tipo: str | None = None
     filter_citta: str | None = None
     filter_provincia: str | None = None
     filter_indirizzo: str | None = None
+    sort_by: str | None = None
+    order: str | None = None

@@ -1,8 +1,8 @@
 from typing import Optional
 
 from app.core.logging import get_logger
-from app.schemas.school import SchoolsList
-from app.services.http_client import HttpClientException, HttpMethod, HttpUrl, HttpParams, send_request
+from app.schemas.school import SchoolsList, SchoolCreate, SchoolResponse
+from app.services.http_client import OrientatiException, HttpMethod, HttpUrl, HttpParams, send_request
 
 logger = get_logger(__name__)
 
@@ -52,24 +52,17 @@ async def get_schools(
 
         response = await send_request(
             method=HttpMethod.GET,
-            url=HttpUrl.SCHOOL_SERVICE,
+            url=HttpUrl.SCHOOLS_SERVICE,
             endpoint="/schools",
             _params=HttpParams(params)
         )
 
         return SchoolsList(**response)
 
-    except HttpClientException as e:
-        logger.error(f"Errore nella chiamata al servizio scuole: {e.message}")
-        raise
+    except OrientatiException as e:
+        raise e
     except Exception as e:
-        logger.error(f"Errore imprevisto: {str(e)}")
-        raise HttpClientException(
-            status_code=500,
-            message="Internal Server Error",
-            server_message=str(e),
-            url=str(HttpUrl.SCHOOL_SERVICE) + "/schools"
-        )
+        raise OrientatiException(url="/auth/register", exc=e)
 
 
 async def get_school_by_id(school_id: int):
@@ -85,20 +78,92 @@ async def get_school_by_id(school_id: int):
     try:
         response = await send_request(
             method=HttpMethod.GET,
-            url=HttpUrl.SCHOOL_SERVICE,
+            url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/schools/{school_id}"
         )
 
         return response
 
-    except HttpClientException as e:
-        logger.error(f"Errore nella chiamata al servizio scuole: {e.message}")
-        raise
+    except OrientatiException as e:
+        raise e
     except Exception as e:
-        logger.error(f"Errore imprevisto: {str(e)}")
-        raise HttpClientException(
-            status_code=500,
-            message="Internal Server Error",
-            server_message=str(e),
-            url=str(HttpUrl.SCHOOL_SERVICE) + f"/schools/{school_id}"
+        raise OrientatiException(url="/auth/register", exc=e)
+
+
+async def create_school(school: SchoolCreate) -> SchoolResponse:
+    """
+    Crea una nuova scuola.
+
+    Args:
+        school (SchoolCreate): Dati della scuola da creare.
+
+    Returns:
+        dict: Dettagli della scuola creata.
+    """
+    try:
+        params = school.model_dump()
+
+        response = await send_request(
+            method=HttpMethod.POST,
+            url=HttpUrl.SCHOOLS_SERVICE,
+            endpoint="/schools",
+            _params=HttpParams(params)
         )
+
+        return SchoolResponse(**response)
+
+    except OrientatiException as e:
+        raise e
+    except Exception as e:
+        raise OrientatiException(url="/auth/register", exc=e)
+
+
+async def update_school(school_id, school) -> SchoolResponse:
+    """
+    Aggiorna i dettagli di una scuola esistente.
+
+    Args:
+        school_id (int): ID della scuola da aggiornare.
+        school (SchoolCreate): Dati aggiornati della scuola.
+
+    Returns:
+        dict: Dettagli della scuola aggiornata.
+    """
+    try:
+        params = school.model_dump()
+
+        response = await send_request(
+            method=HttpMethod.PUT,
+            url=HttpUrl.SCHOOLS_SERVICE,
+            endpoint=f"/schools/{school_id}",
+            _params=HttpParams(params)
+        )
+
+        return SchoolResponse(**response)
+
+    except OrientatiException as e:
+        raise e
+    except Exception as e:
+        raise OrientatiException(url="/auth/register", exc=e)
+
+
+async def delete_school(school_id):
+    """
+    Elimina una scuola esistente.
+
+    Args:
+        school_id (int): ID della scuola da eliminare.
+
+    Returns:
+        None
+    """
+    try:
+        return await send_request(
+            method=HttpMethod.DELETE,
+            url=HttpUrl.SCHOOLS_SERVICE,
+            endpoint=f"/schools/{school_id}"
+        )
+    except OrientatiException as e:
+        raise e
+    except Exception as e:
+        raise OrientatiException(url="/auth/register", exc=e)
