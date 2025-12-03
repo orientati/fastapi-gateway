@@ -128,13 +128,12 @@ class OrientatiException(Exception):
         if exc is not None:
             exc_tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
             logger.error(f"ECCEZIONE ORIGINALE:\n{exc_tb}")
-
-
+            
 async def send_request(url: HttpUrl, method: HttpMethod, endpoint: str, _params: HttpParams = None,
-                       _headers: HttpHeaders = None) -> dict:
+                       _headers: HttpHeaders = None) -> tuple[dict, int]:
     """Gestisce la risposta della richiesta HTTP.
 
-    Ritorna HttpClientResponse o solleva HttpClientException in caso di errore.
+    Ritorna la risposta JSON e il codice di stato HTTP o solleva HttpClientException in caso di errore.
     Utilizza httpx.AsyncClient per le richieste asincrone.
 
     Args:
@@ -147,7 +146,7 @@ async def send_request(url: HttpUrl, method: HttpMethod, endpoint: str, _params:
     Raises:
         HttpClientException: In caso di errore nella richiesta HTTP.
     Returns:
-        HttpClientResponse: Risposta della richiesta HTTP.
+        tuple[dict, int]: Una tupla contenente la risposta JSON e il codice di stato HTTP.
     """
 
     url = f"{url.value}{API_PREFIX}{endpoint}"
@@ -207,4 +206,4 @@ async def send_request(url: HttpUrl, method: HttpMethod, endpoint: str, _params:
             json_data = resp.json()
         except Exception as e:
             raise OrientatiException(message="Invalid JSON response", url=url, exc=e)
-        return json_data
+        return json_data, resp.status_code

@@ -130,6 +130,8 @@ async def email_status(request: Request):
         token = request.headers.get("Authorization")
         if not token:
             raise OrientatiException(status_code=HttpCodes.UNAUTHORIZED, message="Missing Authorization header")
+        token = token.replace("Bearer ", "").strip()
+        payload = await auth.verify_token(token) #TODO: verificare il token
         status = users.get_email_status_from_token(token)
         return JSONResponse(
             status_code=status.HTTP_200_OK,
@@ -147,10 +149,61 @@ async def email_status(request: Request):
             }
         )
 
-# @router.get("/testrabbit")
-# async def test_rabbitmq(request: Request):
-#    broker_instance = broker.AsyncBrokerSingleton()
-#    await broker_instance.connect()
-#    await broker_instance.publish_message("users", "ADD", {})
-#    await broker_instance.publish_message("banana", "ADD", {})
-#    return {"message": "Message sent to RabbitMQ"}
+@router.post("/request_email_verification")
+async def request_email_verification(request: Request):
+    try:
+        token = request.headers.get("Authorization")
+        if not token:
+            raise OrientatiException(
+                status_code=HttpCodes.UNAUTHORIZED,
+                message="Missing Authorization header",
+                details={"message": "Unauthorized"},
+                url="users/request_email_verification"
+            )
+        token = token.replace("Bearer ", "").strip()
+        payload = await auth.verify_token(token) #TODO: verificare il token
+        await users.request_email_verification(payload["user_id"])
+        return JSONResponse(
+            status_code=HttpCodes.OK,
+            content={
+                "message": "Verification email sent"
+            }
+        )
+    except OrientatiException as e:
+        return JSONResponse(
+            status_code=e.status_code,
+            content={
+                "message": e.message,
+                "details": e.details,
+                "url": e.url
+            }
+        )
+
+
+@router.get("/verify_email")
+async def verify_email(token: str):
+    try:
+        verified = await users.verify_email(token)
+        if verified:
+            return JSONResponse(
+                status_code=HttpCodes.OK,
+                content={
+                    "message": "Email verified successfully"
+                }
+            )
+        else:
+            raise OrientatiException(
+                status_code=HttpCodes.BAD_REQUEST,
+                message="Email verification failed",
+                details={"message": "Email verification failed due to unknown reasons"},
+                url="users/verify_email"
+            )
+    except OrientatiException as e:
+        return JSONResponse(
+            status_code=e.status_code,
+            content={
+                "message": e.message,
+                "details": e.details,
+                "url": e.url
+            }
+        )

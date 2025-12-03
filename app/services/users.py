@@ -147,3 +147,39 @@ async def get_email_status_from_token(token: str):
         return user.email_verified
     except Exception as e:
         raise e
+
+
+async def request_email_verification(user_id):
+    try:
+        params = HttpParams()
+        params.add_param("user_id", user_id)
+        await send_request(
+            method=HttpMethod.POST,
+            url=HttpUrl.USERS_SERVICE,
+            endpoint=f"/users/request_email_verification",
+            _params=params
+        )
+    except OrientatiException as e:
+        raise e
+    except Exception as e:
+        raise OrientatiException(exc=e, url="users/request_email_verification")
+
+
+def verify_email(token):
+    try:
+        params = HttpParams()
+        params.add_param("token", token)
+        response, status_code = send_request(
+            method=HttpMethod.GET,
+            url=HttpUrl.USERS_SERVICE,
+            endpoint=f"/users/verify_email",
+            _params=params
+        )
+        if status_code == 204:
+            return True
+        else:
+            return False
+    except OrientatiException as e:
+        raise e
+    except Exception as e:
+        raise OrientatiException(exc=e, url="users/verify_email")
