@@ -24,6 +24,7 @@ dependencies = [
     "asyncpg (>=0.30.0,<0.31.0)",
     "aio-pika (>=9.5.7,<10.0.0)",
     "gunicorn (>=23.0.0,<24.0.0)",
+    "python-multipart (>=0.0.20,<0.0.21)",
 ]
 
 [build-system]
