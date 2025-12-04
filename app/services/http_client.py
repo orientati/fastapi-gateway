@@ -198,6 +198,36 @@ async def send_request(url: HttpUrl, method: HttpMethod, endpoint: str, _params:
     except Exception as e:
         raise OrientatiException(exc=e, url=full_url)
 
+    if resp.status_code >= 400:
+        json_body = {}
+        try:
+            if resp.content:
+                json_body = resp.json()
+                logger.info(json_body)
+        except Exception:
+            pass
+
+        try:
+            if resp.status_code < 500 and "details" in json_body and isinstance(json_body["details"], dict) and "message" in json_body["details"]:
+                general_message = json_body["details"]["message"]
+            else:
+                general_message = json_body.get("message", f"HTTP Error. Unable to fetch. {resp.status_code}")
+        except KeyError:
+            general_message = f"HTTP Error. Unable to fetch. {resp.status_code}"
+
+        try:
+            server_message = json_body.get("details", {"message": resp.text})
+        except KeyError:
+            server_message = {"message": resp.text}
+
+        try:
+            res_url = json_body.get("url", full_url)
+        except KeyError:
+            res_url = full_url
+
+        raise OrientatiException(message=general_message, details=server_message,
+                                 url=res_url, status_code=resp.status_code)
+
     json_data = None
     try:
         if resp.content:
