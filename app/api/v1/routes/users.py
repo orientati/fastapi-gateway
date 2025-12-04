@@ -94,11 +94,11 @@ async def delete_user(user_id: int, token: str = Depends(reusable_oauth2)):
 async def email_status(token: str = Depends(reusable_oauth2)):
     try:
         payload = await auth.verify_token(token) #TODO: verificare il token
-        status = await users.get_email_status_from_token(token)
+        is_verified = await users.get_email_status_from_token(token)
         return JSONResponse(
-            status_code=status.HTTP_200_OK,
+            status_code=HttpCodes.OK,
             content={
-                "status": "verified" if status else "not verified",
+                "status": "verified" if is_verified else "not verified",
             }
         )
     except OrientatiException as e:

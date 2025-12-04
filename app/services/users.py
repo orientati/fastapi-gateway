@@ -166,7 +166,7 @@ async def request_email_verification(user_id):
             _params=params
         )
         if status_code >= 400:
-            raise OrientatiException(message=response.get("message", "Error requesting email verification"), status_code=status_code, details=response)
+            raise OrientatiException(message=response.get("message", "Error requesting email verification"), status_code=status_code, details={"message": "Error requesting email verification"})
     except OrientatiException as e:
         raise e
     except Exception as e:
