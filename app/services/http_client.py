@@ -122,12 +122,15 @@ class OrientatiException(Exception):
         self.status_code = status_code
         self.details = details if details is not None else {"message": "Internal Server Error"}
         self.url = url
-        caller_stack = "".join(traceback.format_stack()[:-1])
-        logger.error("ERRORE!\n")
-        logger.error(f"Stack del richiamante:\n{caller_stack}")
-        if exc is not None:
-            exc_tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-            logger.error(f"ECCEZIONE ORIGINALE:\n{exc_tb}")
+        if self.status_code >= 500:
+            caller_stack = "".join(traceback.format_stack()[:-1])
+            logger.error("ERRORE!\n")
+            logger.error(f"Stack del richiamante:\n{caller_stack}")
+            if exc is not None:
+                exc_tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+                logger.error(f"ECCEZIONE ORIGINALE:\n{exc_tb}")
+        else:
+            logger.warning(f"OrientatiException: {self.message} (Status: {self.status_code}) - URL: {self.url}")
             
             
 async_client: httpx.AsyncClient | None = None
