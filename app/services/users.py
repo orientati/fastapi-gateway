@@ -178,7 +178,7 @@ async def verify_email(token):
         params = HttpParams()
         params.add_param("token", token)
         response, status_code = await send_request(
-            method=HttpMethod.GET,
+            method=HttpMethod.POST,
             url=HttpUrl.USERS_SERVICE,
             endpoint=f"/users/verify_email",
             _params=params
