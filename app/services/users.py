@@ -36,7 +36,7 @@ async def change_password(passwords: ChangePasswordRequest, user_id: int) -> boo
             _params=params
         )
         if status_code >= 400:
-            raise OrientatiException(message=response.get("message", "Error changing password"), status_code=status_code, details=response)
+            raise OrientatiException(message=response.get("message", "Error changing password"), status_code=status_code, details={"message": "Error changing password"})
         return True
     except OrientatiException as e:
         raise e
@@ -57,7 +57,7 @@ async def update_user(user_id: int, new_data: UpdateUserRequest) -> UpdateUserRe
             _params=params
         )
         if status_code >= 400:
-            raise OrientatiException(message=response.get("message", "Error updating user"), status_code=status_code, details=response)
+            raise OrientatiException(message=response.get("message", "Error updating user"), status_code=status_code, details={"message": "Error updating user"})
         return UpdateUserResponse()
     except OrientatiException as e:
         raise e
@@ -73,7 +73,7 @@ async def delete_user(user_id: int) -> DeleteUserResponse:
             endpoint=f"/users/{user_id}"
         )
         if status_code >= 400:
-            raise OrientatiException(message=response.get("message", "Error deleting user"), status_code=status_code, details=response)
+            raise OrientatiException(message=response.get("message", "Error deleting user"), status_code=status_code, details={"message": "Error deleting user"})
         return DeleteUserResponse()
     except OrientatiException as e:
         raise e
