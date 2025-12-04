@@ -86,7 +86,8 @@ async def create_access_token(data: dict, expire_minutes: int = settings.ACCESS_
             _params=params
         )
         if status_code >= 400:
-            raise OrientatiException(message=json_data.get("message", "Error creating access token"), status_code=status_code, details=json_data)
+            message = json_data.get("message", "Error creating access token") if json_data else "Error creating access token"
+            raise OrientatiException(message=message, status_code=status_code, details=json_data)
         return json_data
     except OrientatiException as e:
         raise e
@@ -116,7 +117,8 @@ async def create_refresh_token(data: dict, expire_days: int = settings.REFRESH_T
             _params=params
         )
         if status_code >= 400:
-            raise OrientatiException(message=json_data.get("message", "Error creating refresh token"), status_code=status_code, details=json_data)
+            message = json_data.get("message", "Error creating refresh token") if json_data else "Error creating refresh token"
+            raise OrientatiException(message=message, status_code=status_code, details=json_data)
         return json_data
     except OrientatiException as e:
         raise e
@@ -143,7 +145,8 @@ async def create_new_user(data: dict) -> dict:
             _params=params
         )
         if status_code >= 400:
-            raise OrientatiException(message=json_data.get("message", "Error creating user"), status_code=status_code, details=json_data)
+            message = json_data.get("message", "Error creating user") if json_data else "Error creating user"
+            raise OrientatiException(message=message, status_code=status_code, details=json_data)
         return json_data
     except OrientatiException as e:
         raise e
@@ -159,7 +162,8 @@ async def verify_token(token: str) -> dict:
             _params=params
         )
         if status_code >= 400:
-            raise OrientatiException(message=json_data.get("message", "Error verifying token"), status_code=status_code, details=json_data)
+            message = json_data.get("message", "Error verifying token") if json_data else "Error verifying token"
+            raise OrientatiException(message=message, status_code=status_code, details=json_data)
         return json_data
     except OrientatiException as e:
         raise e
