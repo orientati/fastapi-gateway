@@ -111,6 +111,7 @@ async def update_from_rabbitMQ(message):
                     logger.error(f"User with id {data['id']} not found during update. Created new user.")
                     return
                 user.email = data["email"]
+                user.email_verified = data["email_verified"]
                 user.name = data["name"]
                 user.surname = data["surname"]
                 user.hashed_password = data["hashed_password"]
