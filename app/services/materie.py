@@ -28,12 +28,14 @@ async def get_materie(limit, offset, search, sort_by, order) -> MateriaList:
         # Rimuovo i parametri None
         params = {k: v for k, v in params.items() if v is not None}
 
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.GET,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint="/materie",
             _params=HttpParams(params)
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error getting materie"), status_code=status_code, details=response)
 
         return MateriaList(**response)
 
@@ -52,11 +54,13 @@ async def get_materia_by_id(materia_id: int):
         MateriaResponse: Dettagli della materia
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.GET,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/materie/{materia_id}"
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error getting materia"), status_code=status_code, details=response)
         return response
     except OrientatiException as e:
         raise e
@@ -73,12 +77,14 @@ async def post_materia(materia: MateriaCreate) -> MateriaResponse:
         MateriaResponse: Dettagli della materia creata
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.POST,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint="/materie",
             _params=HttpParams(materia.model_dump())
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error creating materia"), status_code=status_code, details=response)
         return MateriaResponse(**response)
     except OrientatiException as e:
         raise e
@@ -96,12 +102,14 @@ async def put_materia(materia_id: int, materia: MateriaUpdate) -> MateriaRespons
         MateriaResponse: Dettagli della materia aggiornata
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.PUT,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/materie/{materia_id}",
             _params=HttpParams(materia.model_dump())
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error updating materia"), status_code=status_code, details=response)
         return MateriaResponse(**response)
     except OrientatiException as e:
         raise e
@@ -116,11 +124,13 @@ async def delete_materia(materia_id: int):
         materia_id (int): ID della materia da eliminare
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.DELETE,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/materie/{materia_id}"
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error deleting materia"), status_code=status_code, details=response)
         return response
     except OrientatiException as e:
         raise e
@@ -139,11 +149,13 @@ async def link_materia_to_indirizzo(materia_id: int, indirizzo_id: int) -> dict:
     """
     try:
 
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.POST,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/materie/link-indirizzo/{materia_id}/{indirizzo_id}"
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error linking materia"), status_code=status_code, details=response)
 
         return response
 
@@ -164,11 +176,13 @@ async def unlink_materia_from_indirizzo(materia_id: int, indirizzo_id: int):
     """
     try:
 
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.DELETE,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/materie/unlink-indirizzo/{materia_id}/{indirizzo_id}"
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error unlinking materia"), status_code=status_code, details=response)
 
         return response
 

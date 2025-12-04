@@ -79,12 +79,14 @@ async def create_access_token(data: dict, expire_minutes: int = settings.ACCESS_
         if expire_minutes:
             params.add_param("expires_in", expire_minutes)
 
-        json_data = await send_request(
+        json_data, status_code = await send_request(
             url=HttpUrl.TOKEN_SERVICE,
             method=HttpMethod.POST,
             endpoint="/token/create",
             _params=params
         )
+        if status_code >= 400:
+            raise OrientatiException(message=json_data.get("message", "Error creating access token"), status_code=status_code, details=json_data)
         return json_data
     except OrientatiException as e:
         raise e
@@ -107,12 +109,14 @@ async def create_refresh_token(data: dict, expire_days: int = settings.REFRESH_T
         if expire_days:
             params.add_param("expires_in", expire_days * 24 * 60)  # Converti giorni in minuti
 
-        json_data = await send_request(
+        json_data, status_code = await send_request(
             url=HttpUrl.TOKEN_SERVICE,
             method=HttpMethod.POST,
             endpoint="/token/create",
             _params=params
         )
+        if status_code >= 400:
+            raise OrientatiException(message=json_data.get("message", "Error creating refresh token"), status_code=status_code, details=json_data)
         return json_data
     except OrientatiException as e:
         raise e
@@ -132,12 +136,14 @@ async def create_new_user(data: dict) -> dict:
     """
     try:
         params = HttpParams(data)
-        json_data = await send_request(
+        json_data, status_code = await send_request(
             url=HttpUrl.USERS_SERVICE,
             method=HttpMethod.POST,
             endpoint="/users/",
             _params=params
         )
+        if status_code >= 400:
+            raise OrientatiException(message=json_data.get("message", "Error creating user"), status_code=status_code, details=json_data)
         return json_data
     except OrientatiException as e:
         raise e
@@ -146,12 +152,14 @@ async def create_new_user(data: dict) -> dict:
 async def verify_token(token: str) -> dict:
     try:
         params = HttpParams({"token": token})
-        json_data = await send_request(
+        json_data, status_code = await send_request(
             url=HttpUrl.TOKEN_SERVICE,
             method=HttpMethod.POST,
             endpoint="/token/verify",
             _params=params
         )
+        if status_code >= 400:
+            raise OrientatiException(message=json_data.get("message", "Error verifying token"), status_code=status_code, details=json_data)
         return json_data
     except OrientatiException as e:
         raise e

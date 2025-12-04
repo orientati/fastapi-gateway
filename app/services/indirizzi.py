@@ -25,12 +25,14 @@ async def get_indirizzi(limit, offset, search, sort_by, order) -> IndirizzoList:
         # Rimuovo i parametri None
         params = {k: v for k, v in params.items() if v is not None}
 
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.GET,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint="/indirizzi",
             _params=HttpParams(params)
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error getting indirizzi"), status_code=status_code, details=response)
 
         return IndirizzoList(**response)
 
@@ -49,11 +51,13 @@ async def get_indirizzo_by_id(indirizzo_id: int) -> IndirizzoResponse:
         IndirizzoResponse: Dettagli dell'indirizzo di studio.
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.GET,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/indirizzi/{indirizzo_id}"
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error getting indirizzo"), status_code=status_code, details=response)
 
         return IndirizzoResponse(**response)
 
@@ -72,12 +76,14 @@ async def post_indirizzo(indirizzo_data: IndirizzoCreate) -> IndirizzoResponse:
         IndirizzoResponse: Dettagli dell'indirizzo di studio creato.
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.POST,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint="/indirizzi",
             _params=HttpParams(indirizzo_data.model_dump())
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error creating indirizzo"), status_code=status_code, details=response)
 
         return IndirizzoResponse(**response)
 
@@ -97,12 +103,14 @@ async def put_indirizzo(indirizzo_id: int, indirizzo_data: IndirizzoUpdate) -> I
         IndirizzoResponse: Dettagli dell'indirizzo di studio aggiornato.
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.PUT,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/indirizzi/{indirizzo_id}",
             _params=HttpParams(indirizzo_data.model_dump())
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error updating indirizzo"), status_code=status_code, details=response)
 
         return IndirizzoResponse(**response)
 
@@ -121,11 +129,13 @@ async def delete_indirizzo(indirizzo_id: int) -> None:
         None
     """
     try:
-        await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.DELETE,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/indirizzi/{indirizzo_id}"
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error deleting indirizzo"), status_code=status_code, details=response)
 
     except OrientatiException as e:
         raise e

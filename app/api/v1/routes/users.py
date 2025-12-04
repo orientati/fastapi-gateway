@@ -132,7 +132,7 @@ async def email_status(request: Request):
             raise OrientatiException(status_code=HttpCodes.UNAUTHORIZED, message="Missing Authorization header")
         token = token.replace("Bearer ", "").strip()
         payload = await auth.verify_token(token) #TODO: verificare il token
-        status = users.get_email_status_from_token(token)
+        status = await users.get_email_status_from_token(token)
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={
