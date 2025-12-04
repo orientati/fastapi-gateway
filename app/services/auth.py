@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from passlib.context import CryptContext
+from passlib.exc import UnknownHashError
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -162,6 +163,12 @@ async def verify_token(token: str) -> dict:
             _params=params
         )
         if status_code >= 400:
+            # Se il servizio token risponde con 500, lo trattiamo come token non valido (401)
+            # per evitare che il gateway risponda con 500
+            if status_code == 500:
+                logger.warning(f"Token service returned 500 for token verification. Treating as invalid token. Response: {json_data}")
+                raise InvalidTokenException("Token verification failed (upstream error)", InvalidTokenErrorType.INVALID_TOKEN)
+            
             message = json_data.get("message", "Error verifying token") if json_data else "Error verifying token"
             raise OrientatiException(message=message, status_code=status_code, details={"message": message})
         return json_data
@@ -170,7 +177,10 @@ async def verify_token(token: str) -> dict:
 
 
 def verify_password(plain_password: str, hashed_password: str):
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except (UnknownHashError, ValueError):
+        return False
 
 
 async def create_user_session_and_tokens(user: User) -> TokenResponse:
