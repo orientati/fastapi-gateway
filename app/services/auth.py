@@ -349,7 +349,7 @@ async def register(user: UserRegistration) -> TokenResponse:
 
         create_user_response = await create_new_user(
             data={"name": user.name, "surname": user.surname, "email": user.email,
-                  "hashed_password": user.password})
+                  "hashed_password": hashed_password})
         if not create_user_response or "id" not in create_user_response:
             raise OrientatiException(details={"message": "User creation failed"},
                                      url="/auth/register")
