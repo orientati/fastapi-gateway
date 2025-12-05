@@ -50,6 +50,10 @@ async def lifespan(app: FastAPI):
     logger = get_logger(__name__)
     logger.info(f"Starting {settings.SERVICE_NAME}...")
 
+    # Inizializza il client HTTP condiviso
+    from app.services.http_client import init_client, close_client
+    await init_client()
+
     # Avvia il broker asincrono all'avvio dell'app
     broker_instance = broker.AsyncBrokerSingleton()
     connected = await broker_instance.connect()
@@ -65,6 +69,8 @@ async def lifespan(app: FastAPI):
     logger.info(f"Shutting down {settings.SERVICE_NAME}...")
     await broker_instance.close()
     logger.info("RabbitMQ connection closed.")
+    await close_client()
+    logger.info("HTTP Client closed.")
 
 
 docs_url = None if settings.ENVIRONMENT == "production" else "/docs"

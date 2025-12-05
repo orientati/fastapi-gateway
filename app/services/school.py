@@ -50,12 +50,14 @@ async def get_schools(
         # Rimuovo i parametri None
         params = {k: v for k, v in params.items() if v is not None}
 
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.GET,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint="/schools",
             _params=HttpParams(params)
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error getting schools"), status_code=status_code, details=response)
 
         return SchoolsList(**response)
 
@@ -76,11 +78,13 @@ async def get_school_by_id(school_id: int):
         dict: Dettagli della scuola.
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.GET,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/schools/{school_id}"
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error getting school"), status_code=status_code, details=response)
 
         return response
 
@@ -103,12 +107,14 @@ async def create_school(school: SchoolCreate) -> SchoolResponse:
     try:
         params = school.model_dump()
 
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.POST,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint="/schools",
             _params=HttpParams(params)
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error creating school"), status_code=status_code, details=response)
 
         return SchoolResponse(**response)
 
@@ -132,12 +138,14 @@ async def update_school(school_id, school) -> SchoolResponse:
     try:
         params = school.model_dump()
 
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.PUT,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/schools/{school_id}",
             _params=HttpParams(params)
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error updating school"), status_code=status_code, details=response)
 
         return SchoolResponse(**response)
 
@@ -158,11 +166,14 @@ async def delete_school(school_id):
         None
     """
     try:
-        return await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.DELETE,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/schools/{school_id}"
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error deleting school"), status_code=status_code, details=response)
+        return response
     except OrientatiException as e:
         raise e
     except Exception as e:

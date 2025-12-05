@@ -29,12 +29,15 @@ async def change_password(passwords: ChangePasswordRequest, user_id: int) -> boo
         params.add_param("user_id", user_id)
         params.add_param("old_password", old_password_hashed)
         params.add_param("new_password", new_password_hashed)
-        await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.POST,
             url=HttpUrl.USERS_SERVICE,
             endpoint="/users/change_password",
             _params=params
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error changing password"),
+                                     status_code=status_code, details={"message": "Error changing password"})
         return True
     except OrientatiException as e:
         raise e
@@ -48,12 +51,15 @@ async def update_user(user_id: int, new_data: UpdateUserRequest) -> UpdateUserRe
         params.add_param("email", new_data.email) if new_data.email else None
         params.add_param("name", new_data.name) if new_data.name else None
         params.add_param("surname", new_data.surname) if new_data.surname else None
-        await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.PATCH,
             url=HttpUrl.USERS_SERVICE,
             endpoint=f"/users/{user_id}",
             _params=params
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error updating user"), status_code=status_code,
+                                     details={"message": "Error updating user"})
         return UpdateUserResponse()
     except OrientatiException as e:
         raise e
@@ -63,11 +69,14 @@ async def update_user(user_id: int, new_data: UpdateUserRequest) -> UpdateUserRe
 
 async def delete_user(user_id: int) -> DeleteUserResponse:
     try:
-        await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.DELETE,
             url=HttpUrl.USERS_SERVICE,
             endpoint=f"/users/{user_id}"
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error deleting user"), status_code=status_code,
+                                     details={"message": "Error deleting user"})
         return DeleteUserResponse()
     except OrientatiException as e:
         raise e
@@ -92,8 +101,7 @@ async def update_from_rabbitMQ(message):
                     user = User(
                         id=data["id"],
                         email=data["email"],
-                        name=data["name"],
-                        surname=data["surname"],
+                        email_verified=data["email_verified"],
                         hashed_password=data["hashed_password"],
                         created_at=datetime.fromisoformat(data["created_at"]),
                         updated_at=datetime.fromisoformat(data["updated_at"])
@@ -103,6 +111,7 @@ async def update_from_rabbitMQ(message):
                     logger.error(f"User with id {data['id']} not found during update. Created new user.")
                     return
                 user.email = data["email"]
+                user.email_verified = data["email_verified"]
                 user.name = data["name"]
                 user.surname = data["surname"]
                 user.hashed_password = data["hashed_password"]
@@ -126,7 +135,7 @@ async def update_from_rabbitMQ(message):
 
 async def get_email_status_from_token(token: str):
     try:
-        session_id = get_session_id_from_token(token)
+        session_id = await get_session_id_from_token(token)
         db = next(get_db())
         session = db.query(Session).filter(Session.id == session_id).first()
         if not session:
@@ -147,3 +156,43 @@ async def get_email_status_from_token(token: str):
         return user.email_verified
     except Exception as e:
         raise e
+
+
+async def request_email_verification(user_id):
+    try:
+        params = HttpParams()
+        params.add_param("user_id", user_id)
+        response, status_code = await send_request(
+            method=HttpMethod.POST,
+            url=HttpUrl.USERS_SERVICE,
+            endpoint=f"/users/request_email_verification",
+            _params=params
+        )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error requesting email verification"),
+                                     status_code=status_code,
+                                     details={"message": "Error requesting email verification"})
+    except OrientatiException as e:
+        raise e
+    except Exception as e:
+        raise OrientatiException(exc=e, url="users/request_email_verification")
+
+
+async def verify_email(token):
+    try:
+        params = HttpParams()
+        params.add_param("token", token)
+        response, status_code = await send_request(
+            method=HttpMethod.POST,
+            url=HttpUrl.USERS_SERVICE,
+            endpoint=f"/users/verify_email",
+            _params=params
+        )
+        if status_code == 204:
+            return True
+        else:
+            return False
+    except OrientatiException as e:
+        raise e
+    except Exception as e:
+        raise OrientatiException(exc=e, url="users/verify_email")

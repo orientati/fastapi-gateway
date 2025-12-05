@@ -25,12 +25,14 @@ async def get_citta(limit, offset, search, sort_by, order) -> CittaList:
         # Rimuovo i parametri None
         params = {k: v for k, v in params.items() if v is not None}
 
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.GET,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint="/citta",
             _params=HttpParams(params)
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error getting citta"), status_code=status_code, details=response)
 
         return CittaList(**response)
     except Exception as e:
@@ -48,11 +50,13 @@ async def get_citta_by_id(citta_id: int) -> CittaResponse:
         CittaResponse: Dettagli della città
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.GET,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/citta/{citta_id}"
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error getting citta"), status_code=status_code, details=response)
 
         return CittaResponse(**response)
     except Exception as e:
@@ -70,11 +74,13 @@ async def get_citta_by_zipcode(zipcode: str) -> CittaResponse:
         CittaResponse: Dettagli della città
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.GET,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/citta/zipcode/{zipcode}"
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error getting citta by zipcode"), status_code=status_code, details=response)
 
         return CittaResponse(**response)
     except Exception as e:
@@ -92,12 +98,14 @@ async def post_citta(citta: CittaCreate) -> CittaResponse:
         CittaResponse: Dettagli della città creata
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.POST,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint="/citta",
             _params=HttpParams(citta.model_dump())
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error creating citta"), status_code=status_code, details=response)
 
         return CittaResponse(**response)
     except Exception as e:
@@ -116,12 +124,14 @@ async def put_citta(citta_id: int, citta: CittaUpdate) -> CittaResponse:
         CittaResponse: Dettagli della città aggiornata
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.PUT,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/citta/{citta_id}",
             _params=HttpParams(citta.model_dump())
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error updating citta"), status_code=status_code, details=response)
 
         return CittaResponse(**response)
     except Exception as e:
@@ -139,11 +149,13 @@ async def delete_citta(citta_id: int) -> CittaResponse:
         CittaResponse: Dettagli della città eliminata
     """
     try:
-        response = await send_request(
+        response, status_code = await send_request(
             method=HttpMethod.DELETE,
             url=HttpUrl.SCHOOLS_SERVICE,
             endpoint=f"/citta/{citta_id}"
         )
+        if status_code >= 400:
+            raise OrientatiException(message=response.get("message", "Error deleting citta"), status_code=status_code, details=response)
 
         return CittaResponse(**response)
     except Exception as e:

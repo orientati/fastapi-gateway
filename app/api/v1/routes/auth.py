@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.logging import get_logger
 from app.schemas.auth import UserLogin, TokenResponse, TokenRequest, UserRegistration, UserLogout
@@ -13,8 +14,19 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(user: UserLogin):
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    user_json: UserLogin | None = None
+):
     try:
+        if form_data:
+            # Swagger UI invia username e password come form data
+            user = UserLogin(email=form_data.username, password=form_data.password)
+        elif user_json:
+            user = user_json
+        else:
+             raise HTTPException(status_code=400, detail="Missing credentials")
+             
         return await auth.login(user)
     except OrientatiException as e:
         return JSONResponse(

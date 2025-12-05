@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from passlib.context import CryptContext
+from passlib.exc import UnknownHashError
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -79,12 +80,15 @@ async def create_access_token(data: dict, expire_minutes: int = settings.ACCESS_
         if expire_minutes:
             params.add_param("expires_in", expire_minutes)
 
-        json_data = await send_request(
+        json_data, status_code = await send_request(
             url=HttpUrl.TOKEN_SERVICE,
             method=HttpMethod.POST,
             endpoint="/token/create",
             _params=params
         )
+        if status_code >= 400:
+            message = json_data.get("message", "Error creating access token") if json_data else "Error creating access token"
+            raise OrientatiException(message=message, status_code=status_code, details={"message": message})
         return json_data
     except OrientatiException as e:
         raise e
@@ -107,12 +111,15 @@ async def create_refresh_token(data: dict, expire_days: int = settings.REFRESH_T
         if expire_days:
             params.add_param("expires_in", expire_days * 24 * 60)  # Converti giorni in minuti
 
-        json_data = await send_request(
+        json_data, status_code = await send_request(
             url=HttpUrl.TOKEN_SERVICE,
             method=HttpMethod.POST,
             endpoint="/token/create",
             _params=params
         )
+        if status_code >= 400:
+            message = json_data.get("message", "Error creating refresh token") if json_data else "Error creating refresh token"
+            raise OrientatiException(message=message, status_code=status_code, details={"message": message})
         return json_data
     except OrientatiException as e:
         raise e
@@ -132,12 +139,15 @@ async def create_new_user(data: dict) -> dict:
     """
     try:
         params = HttpParams(data)
-        json_data = await send_request(
+        json_data, status_code = await send_request(
             url=HttpUrl.USERS_SERVICE,
             method=HttpMethod.POST,
             endpoint="/users/",
             _params=params
         )
+        if status_code >= 400:
+            message = json_data.get("message", "Error creating user") if json_data else "Error creating user"
+            raise OrientatiException(message=message, status_code=status_code, details={"message": message})
         return json_data
     except OrientatiException as e:
         raise e
@@ -146,19 +156,31 @@ async def create_new_user(data: dict) -> dict:
 async def verify_token(token: str) -> dict:
     try:
         params = HttpParams({"token": token})
-        json_data = await send_request(
+        json_data, status_code = await send_request(
             url=HttpUrl.TOKEN_SERVICE,
             method=HttpMethod.POST,
             endpoint="/token/verify",
             _params=params
         )
+        if status_code >= 400:
+            # Se il servizio token risponde con 500, lo trattiamo come token non valido (401)
+            # per evitare che il gateway risponda con 500
+            if status_code == 500:
+                logger.warning(f"Token service returned 500 for token verification. Treating as invalid token. Response: {json_data}")
+                raise InvalidTokenException("Token verification failed (upstream error)", InvalidTokenErrorType.INVALID_TOKEN)
+            
+            message = json_data.get("message", "Error verifying token") if json_data else "Error verifying token"
+            raise OrientatiException(message=message, status_code=status_code, details={"message": message})
         return json_data
     except OrientatiException as e:
         raise e
 
 
 def verify_password(plain_password: str, hashed_password: str):
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except (UnknownHashError, ValueError):
+        return False
 
 
 async def create_user_session_and_tokens(user: User) -> TokenResponse:
@@ -327,7 +349,7 @@ async def register(user: UserRegistration) -> TokenResponse:
 
         create_user_response = await create_new_user(
             data={"name": user.name, "surname": user.surname, "email": user.email,
-                  "hashed_password": user.password})
+                  "hashed_password": hashed_password})
         if not create_user_response or "id" not in create_user_response:
             raise OrientatiException(details={"message": "User creation failed"},
                                      url="/auth/register")
