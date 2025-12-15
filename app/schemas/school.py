@@ -39,7 +39,6 @@ class SchoolUpdate(SchoolBase):
 
 
 class SchoolsList(BaseModel):
-    status_code: int
     scuole: List[SchoolResponse]
     total: int
     limit: int
