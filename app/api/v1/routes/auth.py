@@ -3,11 +3,13 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.core.limiter import limiter
 from app.db.session import get_db
 from app.schemas.auth import UserLogin, TokenResponse, TokenRequest, UserRegistration, UserLogout
+from app.db.session import get_db
 from app.services import auth
 from app.services.http_client import OrientatiException
 
@@ -80,6 +82,7 @@ async def register(request: Request, user: UserRegistration, db: AsyncSession = 
     try:
         await auth.register(user, db)
         return {"message": "Registration successful. Please check your email to verify your account."}
+
     except OrientatiException as e:
         return JSONResponse(
             status_code=e.status_code,
