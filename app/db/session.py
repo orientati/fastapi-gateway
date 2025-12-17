@@ -1,24 +1,35 @@
-from typing import Generator
+from typing import AsyncGenerator
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 
-engine = create_engine(settings.DATABASE_URL,
-   pool_size=1000,  # connessioni permanenti
-   max_overflow=2000,  # connessioni extra temporanee
-   pool_timeout=5,  # secondi prima di dare errore se pool pieno
-   pool_recycle=1800,  # ricrea connessioni vecchie ogni 30 minuti
-   pool_pre_ping=True,  # verifica connessione prima di riutilizzarla
+# Assicurati che l'URL del DB sia corretto per l'async (es. sqlite+aiosqlite://)
+# Se settings.DATABASE_URL è sincrono (sqlite://), dobbiamo convertirlo o assumere sia già corretto.
+# Per sicurezza, forziamo sqlite+aiosqlite per questo refactor se è sqlite.
+db_url = settings.DATABASE_URL
+if db_url.startswith("sqlite://") and not db_url.startswith("sqlite+aiosqlite://"):
+    db_url = db_url.replace("sqlite://", "sqlite+aiosqlite://")
+
+engine = create_async_engine(
+    db_url,
+    pool_size=1000,
+    max_overflow=2000,
+    pool_timeout=5,
+    pool_recycle=1800,
+    pool_pre_ping=True,
+    # check_same_thread=False è necessario per SQLite in async
+    connect_args={"check_same_thread": False} if "sqlite" in db_url else {}
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+AsyncSessionLocal = sessionmaker(
+    autocommit=False, 
+    autoflush=False, 
+    bind=engine, 
+    class_=AsyncSession
+)
 
 
-def get_db() -> Generator[Session, None, None]:
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        yield session

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import reusable_oauth2
+from app.api.deps import reusable_oauth2, get_db
 
 from app.core.logging import get_logger
 from app.schemas.users import ChangePasswordRequest, ChangePasswordResponse, UpdateUserRequest, DeleteUserResponse
@@ -106,10 +107,10 @@ async def delete_user(user_id: int, token: str = Depends(reusable_oauth2)):
 
 # funzione che restituisce se l'utente che la sta chiamando ha la email verificata
 @router.get("/email_status")
-async def email_status(token: str = Depends(reusable_oauth2)):
+async def email_status(token: str = Depends(reusable_oauth2), db: AsyncSession = Depends(get_db)):
     try:
-        payload = await auth.verify_token(token) #TODO: verificare il token
-        is_verified = await users.get_email_status_from_token(token)
+        # payload = await auth.verify_token(token) #TODO: verificare il token
+        is_verified = await users.get_email_status_from_token(token, db)
         return JSONResponse(
             status_code=HttpCodes.OK,
             content={

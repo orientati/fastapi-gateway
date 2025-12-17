@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
 from app.core.logging import get_logger
 from app.core.limiter import limiter
+from app.db.session import get_db
 from app.schemas.auth import UserLogin, TokenResponse, TokenRequest, UserRegistration, UserLogout
 from app.services import auth
 from app.services.http_client import OrientatiException
@@ -18,7 +20,8 @@ router = APIRouter()
 async def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    user_json: Optional[UserLogin] = None
+    user_json: Optional[UserLogin] = None,
+    db: AsyncSession = Depends(get_db)
 ):
     try:
         if form_data:
@@ -29,7 +32,7 @@ async def login(
         else:
              raise HTTPException(status_code=400, detail="Missing credentials")
              
-        return await auth.login(user)
+        return await auth.login(user, db)
     except OrientatiException as e:
         return JSONResponse(
             status_code=e.status_code,
@@ -42,9 +45,9 @@ async def login(
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def post_refresh_token(refresh_token: TokenRequest):
+async def post_refresh_token(refresh_token: TokenRequest, db: AsyncSession = Depends(get_db)):
     try:
-        return await auth.refresh_token(refresh_token)
+        return await auth.refresh_token(refresh_token, db)
     except OrientatiException as e:
         return JSONResponse(
             status_code=e.status_code,
@@ -57,9 +60,9 @@ async def post_refresh_token(refresh_token: TokenRequest):
 
 
 @router.post("/logout", response_model=UserLogout)
-async def logout(access_token: TokenRequest):
+async def logout(access_token: TokenRequest, db: AsyncSession = Depends(get_db)):
     try:
-        return await auth.logout(access_token)
+        return await auth.logout(access_token, db)
     except OrientatiException as e:
         return JSONResponse(
             status_code=e.status_code,
@@ -73,9 +76,9 @@ async def logout(access_token: TokenRequest):
 
 @router.post("/register", status_code=202)
 @limiter.limit("5/minute")
-async def register(request: Request, user: UserRegistration):
+async def register(request: Request, user: UserRegistration, db: AsyncSession = Depends(get_db)):
     try:
-        await auth.register(user)
+        await auth.register(user, db)
         return {"message": "Registration successful. Please check your email to verify your account."}
     except OrientatiException as e:
         return JSONResponse(

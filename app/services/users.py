@@ -2,9 +2,11 @@ import json
 from datetime import datetime
 
 from passlib.context import CryptContext
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.db.session import get_db
+from app.db.session import AsyncSessionLocal
 from app.models.session import Session
 from app.models.user import User
 from app.schemas.users import ChangePasswordRequest, UpdateUserRequest, UpdateUserResponse, \
@@ -87,57 +89,76 @@ async def delete_user(user_id: int) -> DeleteUserResponse:
 async def update_from_rabbitMQ(message):
     async with message.process():
         try:
-            db = next(get_db())
-            response = message.body.decode()
-            json_response = json.loads(response)
-            msg_type = json_response["type"]
-            data = json_response["data"]
+            async with AsyncSessionLocal() as db:
+                response = message.body.decode()
+                json_response = json.loads(response)
+                msg_type = json_response["type"]
+                data = json_response["data"]
 
-            logger.info(f"Received message from RabbitMQ: {msg_type} - {data}")
+                logger.info(f"Received message from RabbitMQ: {msg_type} - {data}")
 
-            user = db.query(User).filter(User.id == data["id"]).first()
-            if msg_type == RABBIT_UPDATE_TYPE:
-                if user is None:
-                    user = User(
-                        id=data["id"],
-                        email=data["email"],
-                        email_verified=data["email_verified"],
-                        hashed_password=data["hashed_password"],
-                        created_at=datetime.fromisoformat(data["created_at"]),
-                        updated_at=datetime.fromisoformat(data["updated_at"])
-                    )
-                    db.add(user)
-                    db.commit()
-                    logger.error(f"User with id {data['id']} not found during update. Created new user.")
-                    return
-                user.email = data["email"]
-                user.email_verified = data["email_verified"]
-                user.name = data["name"]
-                user.surname = data["surname"]
-                user.hashed_password = data["hashed_password"]
-                user.updated_at = datetime.fromisoformat(data["updated_at"])
-                db.commit()
+                stmt = select(User).where(User.id == data["id"])
+                result = await db.execute(stmt)
+                user = result.scalars().first()
 
-            elif msg_type == RABBIT_DELETE_TYPE:
-                if user:
-                    db.delete(user)
-                    db.commit()
+                if msg_type == RABBIT_UPDATE_TYPE:
+                    if user is None:
+                        # Se l'utente non esiste, lo creiamo (potrebbe essere arrivato prima l'update del create?)
+                        # O semplicemente sincronizziamo
+                        user = User(
+                            id=data["id"],
+                            email=data["email"],
+                            # email_verified logic might vary, assuming field exists
+                            # email_verified=data.get("email_verified", False), 
+                            hashed_password=data["hashed_password"],
+                            created_at=datetime.fromisoformat(data["created_at"]),
+                            updated_at=datetime.fromisoformat(data["updated_at"])
+                        )
+                        # Check optional fields if user model supports them and they are in data
+                        if "email_verified" in data:
+                             user.email_verified = data["email_verified"]
+                        
+                        if "name" in data: user.name = data["name"]
+                        if "surname" in data: user.surname = data["surname"]
+
+                        db.add(user)
+                        await db.commit()
+                        logger.warning(f"User with id {data['id']} not found during update. Created new user.")
+                        return
+
+                    user.email = data["email"]
+                    if "email_verified" in data:
+                         user.email_verified = data["email_verified"]
+                    if "name" in data: user.name = data["name"]
+                    if "surname" in data: user.surname = data["surname"]
+                    
+                    user.hashed_password = data["hashed_password"]
+                    user.updated_at = datetime.fromisoformat(data["updated_at"])
+                    await db.commit()
+
+                elif msg_type == RABBIT_DELETE_TYPE:
+                    if user:
+                        await db.delete(user)
+                        await db.commit()
+                    else:
+                        logger.error(f"User with id {data['id']} not found during delete.")
+
+                elif msg_type == RABBIT_CREATE_TYPE:
+                    # Usually handled by auth/register logic or sync logic
+                    pass
                 else:
-                    logger.error(f"User with id {data['id']} not found during delete.")
-
-            elif msg_type == RABBIT_CREATE_TYPE:
-                pass
-            else:
-                logger.error(f"Unsupported message type: {type}")
+                    logger.error(f"Unsupported message type: {msg_type}")
         except Exception as e:
             raise OrientatiException(exc=e, url="users/update_from_rabbitMQ")
 
 
-async def get_email_status_from_token(token: str):
+async def get_email_status_from_token(token: str, db: AsyncSession):
     try:
         session_id = await get_session_id_from_token(token)
-        db = next(get_db())
-        session = db.query(Session).filter(Session.id == session_id).first()
+        stmt = select(Session).where(Session.id == session_id)
+        result = await db.execute(stmt)
+        session = result.scalars().first()
+        
         if not session:
             raise OrientatiException(
                 status_code=404,
@@ -145,7 +166,11 @@ async def get_email_status_from_token(token: str):
                 details={"message": "Session not found"},
                 url="users/get_email_status_from_token"
             )
-        user = db.query(User).filter(User.id == session.user_id).first()
+        
+        stmt_user = select(User).where(User.id == session.user_id)
+        res_user = await db.execute(stmt_user)
+        user = res_user.scalars().first()
+
         if not user:
             raise OrientatiException(
                 status_code=404,
@@ -156,9 +181,6 @@ async def get_email_status_from_token(token: str):
         return user.email_verified
     except Exception as e:
         raise e
-
-
-
 
 
 async def verify_email(token):
