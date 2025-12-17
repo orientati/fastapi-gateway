@@ -21,7 +21,8 @@ from app.core.limiter import limiter
 from app.db.base import import_models
 from app.services import broker, users as users_service
 
-tracemalloc.start(10)  # Avvia il tracciamento della memoria con 10 frame di profondità
+if settings.ENVIRONMENT == "development":
+    tracemalloc.start(10)  # Avvia il tracciamento della memoria con 10 frame di profondità
 
 import_models()  # Importa i modelli affinché siano disponibili per le relazioni SQLAlchemy
 
@@ -158,7 +159,7 @@ app.include_router(current_router, prefix="/api/v1")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
