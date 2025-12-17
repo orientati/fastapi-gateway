@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     API_PREFIX: str = "/api/v1"
+    ALLOWED_ORIGINS: list[str] = ["*"]
 
     #### ROUTES              # noqa: E266
     TOKEN_SERVICE_URL: str = "http://token:8002"

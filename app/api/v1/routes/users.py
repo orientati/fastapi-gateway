@@ -59,7 +59,14 @@ async def update_user_self(new_data: UpdateUserRequest, token: str = Depends(reu
 async def update_user(user_id: int, new_data: UpdateUserRequest, token: str = Depends(reusable_oauth2)):
     try:
         # TODO: verificare che l'utente abbia i permessi per modificare un altro utente
-        await auth.verify_token(token)
+        payload = await auth.verify_token(token)
+        if payload["user_id"] != user_id:
+             raise OrientatiException(
+                status_code=HttpCodes.FORBIDDEN,
+                message="Forbidden",
+                details={"message": "You are not allowed to update this user"},
+                url=f"users/{user_id}"
+            )
         return await users.update_user(user_id, new_data)
     except OrientatiException as e:
         return JSONResponse(
@@ -76,7 +83,14 @@ async def update_user(user_id: int, new_data: UpdateUserRequest, token: str = De
 async def delete_user(user_id: int, token: str = Depends(reusable_oauth2)):
     try:
         # TODO: verificare che l'utente abbia i permessi per eliminare un altro utente
-        await auth.verify_token(token)
+        payload = await auth.verify_token(token)
+        if payload["user_id"] != user_id:
+             raise OrientatiException(
+                status_code=HttpCodes.FORBIDDEN,
+                message="Forbidden",
+                details={"message": "You are not allowed to delete this user"},
+                url=f"users/{user_id}"
+            )
         return await users.delete_user(user_id)
     except OrientatiException as e:
         return JSONResponse(
@@ -89,6 +103,7 @@ async def delete_user(user_id: int, token: str = Depends(reusable_oauth2)):
         )
 
 
+
 # funzione che restituisce se l'utente che la sta chiamando ha la email verificata
 @router.get("/email_status")
 async def email_status(token: str = Depends(reusable_oauth2)):
@@ -99,27 +114,6 @@ async def email_status(token: str = Depends(reusable_oauth2)):
             status_code=HttpCodes.OK,
             content={
                 "status": "verified" if is_verified else "not verified",
-            }
-        )
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
-
-@router.post("/request_email_verification")
-async def request_email_verification(token: str = Depends(reusable_oauth2)):
-    try:
-        payload = await auth.verify_token(token) #TODO: verificare il token
-        await users.request_email_verification(payload["user_id"])
-        return JSONResponse(
-            status_code=HttpCodes.OK,
-            content={
-                "message": "Verification email sent"
             }
         )
     except OrientatiException as e:

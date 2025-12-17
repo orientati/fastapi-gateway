@@ -48,7 +48,7 @@ async def change_password(passwords: ChangePasswordRequest, user_id: int) -> boo
 async def update_user(user_id: int, new_data: UpdateUserRequest) -> UpdateUserResponse:
     try:
         params = HttpParams()
-        params.add_param("email", new_data.email) if new_data.email else None
+        # email rimosso
         params.add_param("name", new_data.name) if new_data.name else None
         params.add_param("surname", new_data.surname) if new_data.surname else None
         response, status_code = await send_request(
@@ -58,8 +58,8 @@ async def update_user(user_id: int, new_data: UpdateUserRequest) -> UpdateUserRe
             _params=params
         )
         if status_code >= 400:
-            raise OrientatiException(message=response.get("message", "Error updating user"), status_code=status_code,
-                                     details={"message": "Error updating user"})
+            raise OrientatiException(message=response.get("message", "Errore durante l'aggiornamento dell'utente"), status_code=status_code,
+                                     details={"message": "Errore durante l'aggiornamento dell'utente"})
         return UpdateUserResponse()
     except OrientatiException as e:
         raise e
@@ -158,24 +158,7 @@ async def get_email_status_from_token(token: str):
         raise e
 
 
-async def request_email_verification(user_id):
-    try:
-        params = HttpParams()
-        params.add_param("user_id", user_id)
-        response, status_code = await send_request(
-            method=HttpMethod.POST,
-            url=HttpUrl.USERS_SERVICE,
-            endpoint=f"/users/request_email_verification",
-            _params=params
-        )
-        if status_code >= 400:
-            raise OrientatiException(message=response.get("message", "Error requesting email verification"),
-                                     status_code=status_code,
-                                     details={"message": "Error requesting email verification"})
-    except OrientatiException as e:
-        raise e
-    except Exception as e:
-        raise OrientatiException(exc=e, url="users/request_email_verification")
+
 
 
 async def verify_email(token):

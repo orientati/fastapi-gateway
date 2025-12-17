@@ -9,7 +9,6 @@ class ChangePasswordResponse(BaseModel):
     message: str = "Password changed successfully"
     
 class UpdateUserRequest(BaseModel):
-    email: str | None = None
     name: str | None = None
     surname: str | None = None
 

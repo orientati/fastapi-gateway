@@ -15,12 +15,14 @@ from app.services.http_client import OrientatiException, HttpMethod, HttpUrl, Ht
 
 logger = get_logger(__name__)
 
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto", argon2__rounds=1, argon2__memory_cost=64)
+# Hash fittizio per mitigazione attacchi temporali
+DUMMY_PWD_HASH = pwd_context.hash("dummy_password_for_safety")
 
 
 # Custom exception per invalid credentials
 class InvalidCredentialsException(OrientatiException):
-    def __init__(self, message: str):
+    def __init__(self, message: str = "Credenziali non valide"):
         self.message = "Unauthorized"
         self.status_code = 401
         self.url = "/login"
@@ -231,8 +233,24 @@ async def login(user_login: UserLogin) -> TokenResponse:
     db = next(get_db())
     try:
         user = db.query(User).filter(User.email == user_login.email).first()
-        if not user or not verify_password(user_login.password, user.hashed_password):
-            raise InvalidCredentialsException("Invalid Credentials")
+
+        # Mitigazione attacchi temporali
+        password_valid = False
+        if user:
+            password_valid = verify_password(user_login.password, user.hashed_password)
+        else:
+            # Simula la verifica per consumare un tempo simile
+            verify_password(user_login.password, DUMMY_PWD_HASH)
+            password_valid = False
+
+        # Errore generico per tutti i fallimenti di autenticazione (Non trovato, password errata, non verificato)
+        if not user or not password_valid:
+            raise InvalidCredentialsException()
+
+        if not user.email_verified:
+             # Ritorna genericamente 401 anche per email non verificata per prevenire l'enumerazione di utenti "validi ma non verificati"
+             raise InvalidCredentialsException()
+
         return await create_user_session_and_tokens(user)
     except (InvalidCredentialsException, OrientatiException) as e:
         raise e
@@ -343,31 +361,35 @@ async def logout(access_token: TokenRequest) -> UserLogout:
         raise OrientatiException(url="/auth/logout", exc=e)
 
 
-async def register(user: UserRegistration) -> TokenResponse:
+async def register(user: UserRegistration) -> None:
     try:
         hashed_password = pwd_context.hash(user.password)
 
         create_user_response = await create_new_user(
             data={"name": user.name, "surname": user.surname, "email": user.email,
                   "hashed_password": hashed_password})
+        
         if not create_user_response or "id" not in create_user_response:
+            # Se 202 Accepted non restituisce contenuto, non possiamo sincronizzare il DB locale. 
+            # Assumiamo che il servizio utenti restituisca i dati utente.
             raise OrientatiException(details={"message": "User creation failed"},
                                      url="/auth/register")
 
-        # Login automatico dopo la registrazione
-        # richiamo direttamente la creazione della sessione e dei token, senza leggere l'utente dal DB
+        # Salvo l'utente localmente ma NON eseguo il login automatico
         db = next(get_db())
-        user = User(
+        user_local = User(
             id=create_user_response["id"],
             email=user.email,
             hashed_password=hashed_password,
-            created_at=create_user_response["created_at"],
-            updated_at=create_user_response["updated_at"]
+            created_at=datetime.fromisoformat(create_user_response["created_at"]),
+            updated_at=datetime.fromisoformat(create_user_response["updated_at"]),
+            email_verified=False
         )
-        db.add(user)
+        db.add(user_local)
         db.commit()
-        db.refresh(user)
-        return await create_user_session_and_tokens(user)
+        db.refresh(user_local)
+        
+        return None
     except OrientatiException as e:
         raise e
     except Exception as e:
