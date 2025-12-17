@@ -6,20 +6,24 @@ import tracemalloc
 from contextlib import asynccontextmanager
 
 import sentry_sdk
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 from sentry_sdk.integrations.httpx import HttpxIntegration
 
 from app.api.v1.routes import auth, users, school, materie, indirizzi, citta
 from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
+from app.core.limiter import limiter
 from app.db.base import import_models
 from app.services import broker, users as users_service
 
-tracemalloc.start(10)  # Avvio il tracciamento della memoria con 10 frame di profondità
+tracemalloc.start(10)  # Avvia il tracciamento della memoria con 10 frame di profondità
 
-import_models()  # Importo i modelli perché siano disponibili per le relazioni SQLAlchemy
+import_models()  # Importa i modelli affinché siano disponibili per le relazioni SQLAlchemy
 
 sentry_sdk.init(
     dsn=settings.SENTRY_DSN,
@@ -60,27 +64,27 @@ async def lifespan(app: FastAPI):
     
     connected = False
     for i in range(settings.RABBITMQ_CONNECTION_RETRIES):
-        logger.info(f"Connecting to RabbitMQ (attempt {i + 1}/{settings.RABBITMQ_CONNECTION_RETRIES})...")
+        logger.info(f"Connessione a RabbitMQ (tentativo {i + 1}/{settings.RABBITMQ_CONNECTION_RETRIES})...")
         connected = await broker_instance.connect()
         if connected:
             break
-        logger.warning(f"Failed to connect to RabbitMQ. Retrying in {settings.RABBITMQ_CONNECTION_RETRY_DELAY} seconds...")
+        logger.warning(f"Impossibile connettersi a RabbitMQ. Riprovo tra {settings.RABBITMQ_CONNECTION_RETRY_DELAY} secondi...")
         await asyncio.sleep(settings.RABBITMQ_CONNECTION_RETRY_DELAY)
 
     if not connected:
-        logger.error("Could not connect to RabbitMQ after multiple attempts. Exiting...")
+        logger.error("Impossibile connettersi a RabbitMQ dopo molteplici tentativi. Uscita...")
         sys.exit(1)
 
     else:
-        logger.info("Connected to RabbitMQ.")
+        logger.info("Connesso a RabbitMQ.")
         for exchange, cb in exchanges.items():
             await broker_instance.subscribe(exchange, cb)
     yield
-    logger.info(f"Shutting down {settings.SERVICE_NAME}...")
+    logger.info(f"Chiusura {settings.SERVICE_NAME}...")
     await broker_instance.close()
-    logger.info("RabbitMQ connection closed.")
+    logger.info("Connessione RabbitMQ chiusa.")
     await close_client()
-    logger.info("HTTP Client closed.")
+    logger.info("Client HTTP chiuso.")
 
 
 docs_url = None if settings.ENVIRONMENT == "production" else "/docs"
@@ -93,7 +97,23 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url=docs_url,
     redoc_url=redoc_url,
+
 )
+
+# Configurazione Rate Limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+# Middleware Header di Sicurezza
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    return response
 
 # Routers
 current_router = APIRouter()

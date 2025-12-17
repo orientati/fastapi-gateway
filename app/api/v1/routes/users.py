@@ -89,6 +89,7 @@ async def delete_user(user_id: int, token: str = Depends(reusable_oauth2)):
         )
 
 
+
 # funzione che restituisce se l'utente che la sta chiamando ha la email verificata
 @router.get("/email_status")
 async def email_status(token: str = Depends(reusable_oauth2)):
@@ -99,27 +100,6 @@ async def email_status(token: str = Depends(reusable_oauth2)):
             status_code=HttpCodes.OK,
             content={
                 "status": "verified" if is_verified else "not verified",
-            }
-        )
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
-
-@router.post("/request_email_verification")
-async def request_email_verification(token: str = Depends(reusable_oauth2)):
-    try:
-        payload = await auth.verify_token(token) #TODO: verificare il token
-        await users.request_email_verification(payload["user_id"])
-        return JSONResponse(
-            status_code=HttpCodes.OK,
-            content={
-                "message": "Verification email sent"
             }
         )
     except OrientatiException as e:

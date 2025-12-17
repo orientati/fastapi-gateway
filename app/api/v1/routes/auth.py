@@ -1,10 +1,10 @@
-from __future__ import annotations
-
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from typing import Optional
 
 from app.core.logging import get_logger
+from app.core.limiter import limiter
 from app.schemas.auth import UserLogin, TokenResponse, TokenRequest, UserRegistration, UserLogout
 from app.services import auth
 from app.services.http_client import OrientatiException
@@ -14,9 +14,11 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("5/minute")
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    user_json: UserLogin | None = None
+    user_json: Optional[UserLogin] = None
 ):
     try:
         if form_data:
@@ -69,10 +71,12 @@ async def logout(access_token: TokenRequest):
         )
 
 
-@router.post("/register", response_model=TokenResponse)
-async def register(user: UserRegistration):
+@router.post("/register", status_code=202)
+@limiter.limit("5/minute")
+async def register(request: Request, user: UserRegistration):
     try:
-        return await auth.register(user)
+        await auth.register(user)
+        return {"message": "Registration successful. Please check your email to verify your account."}
     except OrientatiException as e:
         return JSONResponse(
             status_code=e.status_code,
