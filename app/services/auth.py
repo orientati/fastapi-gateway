@@ -129,7 +129,7 @@ async def create_refresh_token(data: dict, expire_days: int = settings.REFRESH_T
         raise e
 
 
-async def create_new_user(data: dict) -> dict:
+async def create_new_user(data: dict) -> tuple[dict | None, int]:
     """Crea un nuovo utente utilizzando il servizio utenti esterno.
 
     Args:
@@ -139,7 +139,7 @@ async def create_new_user(data: dict) -> dict:
         OrientatiException: Eccezione sollevata in caso di errore nella richiesta HTTP.
 
     Returns:
-        dict: Dati dell'utente creato.
+        tuple[dict | None, int]: Dati dell'utente creato e status code.
     """
     try:
         params = HttpParams(data)
@@ -152,7 +152,7 @@ async def create_new_user(data: dict) -> dict:
         if status_code >= 400:
             message = json_data.get("message", "Error creating user") if json_data else "Error creating user"
             raise OrientatiException(message=message, status_code=status_code, details={"message": message})
-        return json_data
+        return json_data, status_code
     except OrientatiException as e:
         raise e
 
@@ -406,17 +406,22 @@ async def register(user: UserRegistration, db: AsyncSession) -> None:
     try:
         hashed_password = pwd_context.hash(user.password)
 
-        create_user_response = await create_new_user(
+        create_user_response, status_code = await create_new_user(
             data={"name": user.name, "surname": user.surname, "email": user.email,
                   "hashed_password": hashed_password})
         
+        # Gestione risposta asincrona (202 Accepted)
+        if status_code == 202:
+            logger.info("Users service returned 202 Accepted. User creation is processing asynchronously.")
+            return None
+            
         if not create_user_response or "id" not in create_user_response:
-            # Se 202 Accepted non restituisce contenuto, non possiamo sincronizzare il DB locale. 
-            # Assumiamo che il servizio utenti restituisca i dati utente.
-            raise OrientatiException(details={"message": "User creation failed"},
+            # Se la risposta non è 202 ma non ha ID, c'è un problema
+            raise OrientatiException(details={"message": "User creation failed (missing ID)"},
                                      url="/auth/register")
 
         # Salvo l'utente localmente ma NON eseguo il login automatico
+        # Questo blocco viene eseguito solo se la creazione è sincrona e restituisce l'ID
         user_local = User(
             id=create_user_response["id"],
             email=user.email,
