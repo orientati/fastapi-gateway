@@ -132,9 +132,25 @@ async def update_from_rabbitMQ(message):
                         logger.error(f"User with id {data['id']} not found during delete.")
 
                 elif msg_type == RABBIT_CREATE_TYPE:
-                    pass
+                    # Verifica se esiste già
+                    result = await db.execute(select(User).filter(User.id == data["id"]))
+                    user_exist = result.scalars().first()
+                    if user_exist:
+                        logger.warning(f"User with id {data['id']} already exists. Skipping creation.")
+                    else:
+                        user = User(
+                            id=data["id"],
+                            email=data["email"],
+                            email_verified=data["email_verified"],
+                            hashed_password=data["hashed_password"],
+                            created_at=datetime.fromisoformat(data["created_at"]),
+                            updated_at=datetime.fromisoformat(data["updated_at"])
+                        )
+                        db.add(user)
+                        await db.commit()
+                        logger.info(f"User with id {data['id']} created via RabbitMQ.")
                 else:
-                    logger.error(f"Unsupported message type: {type}")
+                    logger.error(f"Unsupported message type: {msg_type}")
         except Exception as e:
             raise OrientatiException(exc=e, url="users/update_from_rabbitMQ")
 

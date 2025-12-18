@@ -192,26 +192,28 @@ async def create_user_session_and_tokens(user: User, db: AsyncSession) -> TokenR
     Crea una sessione per l'utente, genera access e refresh token, li salva nel DB
     e restituisce un TokenResponse.
     """
+    user_id = user.id
     db_session = Session(
-        user_id=user.id,
+        user_id=user_id,
         expires_at=datetime.now() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     )
     db.add(db_session)
     await db.commit()
     await db.refresh(db_session)
+    session_id = db_session.id
 
     access_token_response = await create_access_token(
-        data={"user_id": user.id, "session_id": db_session.id}
+        data={"user_id": user_id, "session_id": session_id}
     )
     access_token = access_token_response["token"]
 
     refresh_token_response = await create_refresh_token(
-        data={"user_id": user.id, "session_id": db_session.id}
+        data={"user_id": user_id, "session_id": session_id}
     )
     refresh_token = refresh_token_response["token"]
 
     db_access_token = AccessToken(
-        session_id=db_session.id,
+        session_id=session_id,
         token=access_token
     )
     db.add(db_access_token)
@@ -219,7 +221,7 @@ async def create_user_session_and_tokens(user: User, db: AsyncSession) -> TokenR
     await db.refresh(db_access_token)
 
     db_refresh_token = RefreshToken(
-        session_id=db_session.id,
+        session_id=session_id,
         token=refresh_token,
         accessToken_id=db_access_token.id
     )
