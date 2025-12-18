@@ -26,10 +26,7 @@ dependencies = [
     "gunicorn (>=23.0.0,<24.0.0)",
     "python-multipart (>=0.0.20,<0.0.21)",
     "slowapi (>=0.1.9,<0.2.0)",
-<<<<<<< HEAD
-=======
     "aiosqlite (>=0.21.0,<0.22.0)",
->>>>>>> de6092d (aggiornato il sistema di autenticazione per supportare AsyncSession e migliorare la gestione delle sessioni nel database)
 ]
 
 [build-system]
