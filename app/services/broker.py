@@ -100,7 +100,7 @@ class AsyncBrokerSingleton:
             del self.consumer_tags[queue_name]
 
         if queue_name in self.queues:
-            await self.queues[queue_name].unbind()
+            # await self.queues[queue_name].unbind() # Requires exchange object, skipping for now
             # await self.queues[queue_name].delete() # Opzionale: decidi se cancellare la coda
             del self.queues[queue_name]
         logger.info(f"Unsubscribed from queue '{queue_name}' (aio-pika)")
