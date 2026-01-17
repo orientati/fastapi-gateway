@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -28,7 +29,11 @@ async def login(
     try:
         if form_data:
             # Swagger UI invia username e password come form data
-            user = UserLogin(email=form_data.username, password=form_data.password)
+            try:
+                user = UserLogin(email=form_data.username, password=form_data.password)
+            except ValidationError as e:
+                # Se la validazione fallisce, solleva un'eccezione 422
+                raise HTTPException(status_code=422, detail=e.errors())
         elif user_json:
             user = user_json
         else:
