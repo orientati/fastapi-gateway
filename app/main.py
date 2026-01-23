@@ -14,12 +14,12 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from sentry_sdk.integrations.httpx import HttpxIntegration
 
-from app.api.v1.routes import auth, users, school, materie, indirizzi, citta
+from app.api.v1.routes import auth, users, school, materie, indirizzi, citta, websockets
 from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
 from app.core.limiter import limiter
 from app.db.base import import_models
-from app.services import broker, users as users_service
+from app.services import broker, users as users_service, redis_service as redis_service, auth as auth_service
 
 if settings.ENVIRONMENT == "development":
     tracemalloc.start(10)  # Avvia il tracciamento della memoria con 10 frame di profondità
@@ -47,6 +47,7 @@ logger = None
 
 exchanges = {
     "users": users_service.update_from_rabbitMQ,
+    "auth.events": auth_service.handle_session_revocation
 }
 
 
@@ -62,6 +63,11 @@ async def lifespan(app: FastAPI):
 
     # Avvia il broker asincrono all'avvio dell'app
     broker_instance = broker.AsyncBrokerSingleton()
+    redis_instance = redis_service.AsyncRedisSingleton()
+
+    # Connessione Redis
+    logger.info("Connecting to Redis...")
+    await redis_instance.connect()
     
     connected = False
     for i in range(settings.RABBITMQ_CONNECTION_RETRIES):
@@ -83,7 +89,8 @@ async def lifespan(app: FastAPI):
     yield
     logger.info(f"Chiusura {settings.SERVICE_NAME}...")
     await broker_instance.close()
-    logger.info("Connessione RabbitMQ chiusa.")
+    await redis_instance.close()
+    logger.info("Connessione RabbitMQ e Redis chiusa.")
     await close_client()
     logger.info("Client HTTP chiuso.")
 
@@ -155,6 +162,9 @@ current_router.include_router(
     router=citta.router,
 )
 
+# WebSocket Router (no prefix needed as it has /ws)
+app.include_router(websockets.router)
+
 app.include_router(current_router, prefix="/api/v1")
 
 app.add_middleware(
@@ -167,5 +177,11 @@ app.add_middleware(
 
 
 @app.get("/health", tags=["health"])
-def health():
-    return {"status": "ok", "service": settings.SERVICE_NAME}
+async def health():
+    redis_instance = redis_service.AsyncRedisSingleton()
+    redis_status = await redis_instance.health_check()
+    return {
+        "status": "ok", 
+        "service": settings.SERVICE_NAME, 
+        "redis": "connected" if redis_status else "disconnected"
+    }

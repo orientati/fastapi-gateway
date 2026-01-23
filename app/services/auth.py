@@ -14,6 +14,7 @@ from app.models.session import Session
 from app.models.user import User
 from app.schemas.auth import UserLogin, TokenResponse, TokenRequest, UserRegistration, UserLogout
 from app.services.http_client import OrientatiException, HttpMethod, HttpUrl, HttpParams, send_request, HttpCodes
+from app.services.redis_service import AsyncRedisSingleton
 
 logger = get_logger(__name__)
 
@@ -505,3 +506,18 @@ async def get_session_id_from_token(access_token: str) -> str:
         return payload["session_id"]
     except Exception as e:
         raise e
+
+
+async def handle_session_revocation(message_data: dict):
+    """
+    Gestisce l'evento di revoca della sessione da RabbitMQ.
+    Expected data: {"user_id": "...", "reason": "..."}
+    """
+    user_id = message_data.get("user_id")
+    if not user_id:
+        logger.warning("Revocation event received without user_id")
+        return
+
+    logger.info(f"Processing session revocation for user {user_id}")
+    redis_service = AsyncRedisSingleton()
+    await redis_service.revoke_user_sessions(user_id)
