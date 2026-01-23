@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 
 from app.core.logging import get_logger
+from app.core.limiter import limiter
 from app.schemas.users import ChangePasswordRequest, ChangePasswordResponse, UpdateUserRequest, DeleteUserResponse
 from app.services import users, auth
 from app.services.http_client import OrientatiException, HttpCodes
@@ -18,7 +19,8 @@ router = APIRouter()
 
 
 @router.post("/change_password", response_model=ChangePasswordResponse)
-async def change_password(passwords: ChangePasswordRequest, token: str = Depends(reusable_oauth2)):
+@limiter.limit("5/minute")
+async def change_password(request: Request, passwords: ChangePasswordRequest, token: str = Depends(reusable_oauth2)):
     try:
         payload = await auth.verify_token(token)
         changed = await users.change_password(passwords, payload["user_id"])
@@ -43,7 +45,8 @@ async def change_password(passwords: ChangePasswordRequest, token: str = Depends
 
 
 @router.patch("/", response_model=UpdateUserRequest)
-async def update_user_self(new_data: UpdateUserRequest, token: str = Depends(reusable_oauth2)):
+@limiter.limit("20/minute")
+async def update_user_self(request: Request, new_data: UpdateUserRequest, token: str = Depends(reusable_oauth2)):
     try:
         payload = await auth.verify_token(token)
         return await users.update_user(payload["user_id"], new_data)
@@ -59,7 +62,8 @@ async def update_user_self(new_data: UpdateUserRequest, token: str = Depends(reu
 
 
 @router.patch("/{user_id}", response_model=UpdateUserRequest)
-async def update_user(user_id: int, new_data: UpdateUserRequest, token: str = Depends(reusable_oauth2)):
+@limiter.limit("20/minute")
+async def update_user(request: Request, user_id: int, new_data: UpdateUserRequest, token: str = Depends(reusable_oauth2)):
     try:
         # TODO: verificare che l'utente abbia i permessi per modificare un altro utente
         payload = await auth.verify_token(token)
@@ -83,7 +87,8 @@ async def update_user(user_id: int, new_data: UpdateUserRequest, token: str = De
 
 
 @router.delete("/{user_id}", response_model=DeleteUserResponse)
-async def delete_user(user_id: int, token: str = Depends(reusable_oauth2)):
+@limiter.limit("5/minute")
+async def delete_user(request: Request, user_id: int, token: str = Depends(reusable_oauth2)):
     try:
         # TODO: verificare che l'utente abbia i permessi per eliminare un altro utente
         payload = await auth.verify_token(token)
@@ -109,7 +114,8 @@ async def delete_user(user_id: int, token: str = Depends(reusable_oauth2)):
 
 # funzione che restituisce se l'utente che la sta chiamando ha la email verificata
 @router.get("/email_status")
-async def email_status(token: str = Depends(reusable_oauth2), db: AsyncSession = Depends(get_db)):
+@limiter.limit("60/minute")
+async def email_status(request: Request, token: str = Depends(reusable_oauth2), db: AsyncSession = Depends(get_db)):
     try:
         payload = await auth.verify_token(token) #TODO: verificare il token
         is_verified = await users.get_email_status_from_token(token, db)
@@ -132,7 +138,8 @@ async def email_status(token: str = Depends(reusable_oauth2), db: AsyncSession =
 
 
 @router.get("/verify_email")
-async def verify_email(token: str):
+@limiter.limit("10/minute")
+async def verify_email(request: Request, token: str):
     try:
         verified = await users.verify_email(token)
         if verified:

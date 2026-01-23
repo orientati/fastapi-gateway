@@ -9,12 +9,17 @@ from fastapi.responses import JSONResponse
 from app.schemas.materia import MateriaList, MateriaResponse, MateriaCreate, MateriaUpdate
 from app.services import materie as materie_service
 from app.services.http_client import OrientatiException
+from app.core.limiter import limiter
+from app.api.deps import reusable_oauth2
+from fastapi import Request, Depends
 
 router = APIRouter()
 
 
 @router.get("/", response_model=MateriaList)
+@limiter.limit("60/minute")
 async def get_materie(
+        request: Request,
         limit: int = Query(default=10, ge=1, le=100, description="Numero di materie da restituire (1-100)"),
         offset: int = Query(default=0, ge=0, description="Numero di materie da saltare per la paginazione"),
         search: Optional[str] = Query(default=None, description="Termine di ricerca per filtrare le materie per nome"),
@@ -47,7 +52,8 @@ async def get_materie(
 
 
 @router.get("/{materia_id}", response_model=MateriaResponse)
-async def get_materia_by_id(materia_id: int):
+@limiter.limit("60/minute")
+async def get_materia_by_id(request: Request, materia_id: int):
     """
     Recupera i dettagli di una materia dato il suo ID.
 
@@ -71,7 +77,8 @@ async def get_materia_by_id(materia_id: int):
 
 
 @router.post("/", response_model=MateriaResponse)
-async def post_materia(materia: MateriaCreate):
+@limiter.limit("10/minute")
+async def post_materia(request: Request, materia: MateriaCreate, token: str = Depends(reusable_oauth2)):
     """
     Crea una nuova materia.
 
@@ -95,7 +102,8 @@ async def post_materia(materia: MateriaCreate):
 
 
 @router.put("/{materia_id}", response_model=MateriaResponse)
-async def put_materia(materia_id: int, materia: MateriaUpdate):
+@limiter.limit("10/minute")
+async def put_materia(request: Request, materia_id: int, materia: MateriaUpdate, token: str = Depends(reusable_oauth2)):
     """
     Aggiorna i dettagli di una materia esistente.
 
@@ -120,7 +128,8 @@ async def put_materia(materia_id: int, materia: MateriaUpdate):
 
 
 @router.delete("/{materia_id}", response_model=dict)
-async def delete_materia(materia_id: int):
+@limiter.limit("5/minute")
+async def delete_materia(request: Request, materia_id: int, token: str = Depends(reusable_oauth2)):
     """
     Elimina una materia esistente.
 
@@ -144,8 +153,9 @@ async def delete_materia(materia_id: int):
 
 
 @router.post("/link-indirizzo/{materia_id}/{indirizzo_id}")
-async def link_materia_to_indirizzo(materia_id: int, indirizzo_id:
-int):
+@limiter.limit("10/minute")
+async def link_materia_to_indirizzo(request: Request, materia_id: int, indirizzo_id:
+int, token: str = Depends(reusable_oauth2)):
     """
     Collega una materia a un indirizzo di studio.
 
@@ -167,7 +177,8 @@ int):
 
 
 @router.delete("/unlink-indirizzo/{materia_id}/{indirizzo_id}")
-async def unlink_materia_from_indirizzo(materia_id: int, indirizzo_id: int):
+@limiter.limit("10/minute")
+async def unlink_materia_from_indirizzo(request: Request, materia_id: int, indirizzo_id: int, token: str = Depends(reusable_oauth2)):
     """
     Scollega una materia da un indirizzo di studio.
 

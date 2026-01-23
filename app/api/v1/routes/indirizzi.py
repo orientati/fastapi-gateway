@@ -9,12 +9,17 @@ from fastapi.responses import JSONResponse
 from app.schemas.indirizzo import IndirizzoList, IndirizzoResponse, IndirizzoCreate, IndirizzoUpdate
 from app.services import indirizzi as indirizzi_service
 from app.services.http_client import OrientatiException
+from app.core.limiter import limiter
+from app.api.deps import reusable_oauth2
+from fastapi import Request, Depends
 
 router = APIRouter()
 
 
 @router.get("/", response_model=IndirizzoList)
+@limiter.limit("60/minute")
 async def get_indirizzi(
+        request: Request,
         limit: int = Query(default=10, ge=1, le=100, description="Numero di indirizzi da restituire (1-100)"),
         offset: int = Query(default=0, ge=0, description="Numero di indirizzi da saltare per la paginazione"),
         search: Optional[str] = Query(default=None,
@@ -48,7 +53,8 @@ async def get_indirizzi(
 
 
 @router.get("/{indirizzo_id}", response_model=IndirizzoResponse)
-async def get_indirizzo_by_id(indirizzo_id: int):
+@limiter.limit("60/minute")
+async def get_indirizzo_by_id(request: Request, indirizzo_id: int):
     """
     Recupera i dettagli di un indirizzo di studio dato il suo ID.
 
@@ -72,7 +78,8 @@ async def get_indirizzo_by_id(indirizzo_id: int):
 
 
 @router.post("/", response_model=IndirizzoResponse)
-async def post_indirizzo(indirizzo: IndirizzoCreate):
+@limiter.limit("10/minute")
+async def post_indirizzo(request: Request, indirizzo: IndirizzoCreate, token: str = Depends(reusable_oauth2)):
     """
     Crea un nuovo indirizzo di studio.
 
@@ -96,7 +103,8 @@ async def post_indirizzo(indirizzo: IndirizzoCreate):
 
 
 @router.delete("/{indirizzo_id}")
-async def delete_indirizzo(indirizzo_id: int):
+@limiter.limit("5/minute")
+async def delete_indirizzo(request: Request, indirizzo_id: int, token: str = Depends(reusable_oauth2)):
     """
     Elimina un indirizzo di studio dato il suo ID.
 
@@ -121,7 +129,8 @@ async def delete_indirizzo(indirizzo_id: int):
 
 
 @router.put("/{indirizzo_id}", response_model=IndirizzoResponse)
-async def put_indirizzo(indirizzo_id: int, indirizzo: IndirizzoUpdate):
+@limiter.limit("10/minute")
+async def put_indirizzo(request: Request, indirizzo_id: int, indirizzo: IndirizzoUpdate, token: str = Depends(reusable_oauth2)):
     """
     Aggiorna i dettagli di un indirizzo di studio esistente.
 

@@ -52,7 +52,8 @@ async def login(
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def post_refresh_token(refresh_token: TokenRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def post_refresh_token(request: Request, refresh_token: TokenRequest, db: AsyncSession = Depends(get_db)):
     try:
         return await auth.refresh_token(refresh_token, db)
     except OrientatiException as e:
@@ -67,7 +68,8 @@ async def post_refresh_token(refresh_token: TokenRequest, db: AsyncSession = Dep
 
 
 @router.post("/logout", response_model=UserLogout)
-async def logout(access_token: TokenRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def logout(request: Request, access_token: TokenRequest, db: AsyncSession = Depends(get_db)):
     try:
         return await auth.logout(access_token, db)
     except OrientatiException as e:

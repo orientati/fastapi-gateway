@@ -6,15 +6,20 @@ from fastapi import APIRouter
 from fastapi import Query
 from fastapi.responses import JSONResponse
 
-from app.schemas.citta import CittaList, CittaResponse, CittaUpdate
+from app.schemas.citta import CittaList, CittaResponse, CittaUpdate, CittaCreate
 from app.services import citta as citta_service
 from app.services.http_client import OrientatiException
+from app.core.limiter import limiter
+from app.api.deps import reusable_oauth2
+from fastapi import Request, Depends
 
 router = APIRouter()
 
 
 @router.get("/", response_model=CittaList)
+@limiter.limit("60/minute")
 async def get_citta(
+        request: Request,
         limit: int = Query(default=10, ge=1, le=100, description="Numero di città da restituire (1-100)"),
         offset: int = Query(default=0, ge=0, description="Numero di città da saltare per la paginazione"),
         search: Optional[str] = Query(default=None,
@@ -48,7 +53,8 @@ async def get_citta(
 
 
 @router.get("/{citta_id}", response_model=CittaResponse)
-async def get_citta(citta_id: int):
+@limiter.limit("60/minute")
+async def get_citta_by_id(request: Request, citta_id: int):
     """
     Recupera i dettagli di una città dato il suo ID.
 
@@ -72,7 +78,8 @@ async def get_citta(citta_id: int):
 
 
 @router.get("/zipcode/{zipcode}", response_model=CittaResponse)
-async def get_citta_by_zipcode(zipcode: str):
+@limiter.limit("60/minute")
+async def get_citta_by_zipcode(request: Request, zipcode: str):
     """
     Recupera i dettagli di una città dato il suo CAP.
 
@@ -96,7 +103,8 @@ async def get_citta_by_zipcode(zipcode: str):
 
 
 @router.post("/", response_model=CittaResponse)
-async def post_citta(citta: CittaResponse):
+@limiter.limit("10/minute")
+async def post_citta(request: Request, citta: CittaCreate, token: str = Depends(reusable_oauth2)):
     """
     Crea una nuova città.
 
@@ -120,7 +128,8 @@ async def post_citta(citta: CittaResponse):
 
 
 @router.put("/{citta_id}", response_model=CittaResponse)
-async def put_citta(citta_id: int, citta: CittaUpdate):
+@limiter.limit("10/minute")
+async def put_citta(request: Request, citta_id: int, citta: CittaUpdate, token: str = Depends(reusable_oauth2)):
     """
     Aggiorna i dettagli di una città esistente.
 
@@ -145,7 +154,8 @@ async def put_citta(citta_id: int, citta: CittaUpdate):
 
 
 @router.delete("/{citta_id}")
-async def delete_citta(citta_id: int):
+@limiter.limit("5/minute")
+async def delete_citta(request: Request, citta_id: int, token: str = Depends(reusable_oauth2)):
     """
     Elimina una città esistente.
 
