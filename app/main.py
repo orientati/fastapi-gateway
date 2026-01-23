@@ -67,7 +67,9 @@ async def lifespan(app: FastAPI):
 
     # Connessione Redis
     logger.info("Connecting to Redis...")
-    await redis_instance.connect()
+    if not await redis_instance.connect():
+        logger.error("Failed to connect to Redis. Exiting...")
+        sys.exit(1)
     
     connected = False
     for i in range(settings.RABBITMQ_CONNECTION_RETRIES):
