@@ -69,6 +69,22 @@ def mock_broker():
         instance.publish_message = AsyncMock()
         yield mock
 
+@pytest.fixture(scope="function", autouse=True)
+def mock_redis():
+    with patch("app.services.redis_service.AsyncRedisSingleton") as mock:
+        instance = mock.return_value
+        instance.connect = AsyncMock(return_value=True)
+        instance.close = AsyncMock()
+        instance.health_check = AsyncMock(return_value=True)
+        instance.set_ws_ticket = AsyncMock()
+        
+        # Default behavior: consume returns None (invalid ticket)
+        instance.consume_ws_ticket = AsyncMock(return_value=None)
+        
+        instance.set_session = AsyncMock()
+        instance.revoke_user_sessions = AsyncMock()
+        yield mock
+
 @pytest.fixture(scope="function")
 async def client(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
