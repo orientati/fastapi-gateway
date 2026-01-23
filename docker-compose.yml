@@ -32,6 +32,7 @@ services:
     networks:
       - gateway_net
       - rabbit_net
+      - internal
     restart: unless-stopped
 
   gateway_db:
@@ -46,6 +47,20 @@ services:
       - gateway_net
     restart: unless-stopped
 
+  gateway-redis:
+    image: redis:7.4-alpine
+    container_name: gateway-redis
+    command: >
+      redis-server  --requirepass ${GATEWAY_REDIS_PASSWORD}  --appendonly yes  --rename-command FLUSHALL ""  --rename-command CONFIG ""  --rename-command KEYS ""
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "${GATEWAY_REDIS_PASSWORD}", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   gateway_db_data:
 
@@ -54,3 +69,6 @@ networks:
   gateway_net:
   rabbit_net:
     driver: bridge
+  internal:
+    driver: bridge
+    internal: true

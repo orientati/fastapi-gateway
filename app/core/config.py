@@ -4,7 +4,7 @@ from pydantic_settings import SettingsConfigDict, BaseSettings
 class Settings(BaseSettings):
     SERVICE_NAME: str = "FastAPI Gateway"
     SERVICE_VERSION: str = "0.1.0"
-    DATABASE_URL: str = "sqlite:///./database.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./database.db"
     RABBITMQ_HOST: str = "localhost"
     RABBITMQ_PORT: int = 5672
     RABBITMQ_USER: str = "guest"
@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     API_PREFIX: str = "/api/v1"
     ALLOWED_ORIGINS: list[str] = ["*"]
+
+    #### REDIS
+    REDIS_HOST: str = "gateway-redis"
+    REDIS_PORT: int = 6379
+    REDIS_USER: str = "default"
+    REDIS_PASSWORD: str = "redis_secure_password"
+    REDIS_DB: int = 0
 
     #### ROUTES              # noqa: E266
     TOKEN_SERVICE_URL: str = "http://token:8002"
