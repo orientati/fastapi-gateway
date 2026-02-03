@@ -127,7 +127,16 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=(), payment=()"
-    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none';"
+    
+    # CSP: Allow Swagger UI (cdn.jsdelivr.net) and inline styles/scripts
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "img-src 'self' data: https://fastapi.tiangolo.com; "
+        "frame-ancestors 'none';"
+    )
+    response.headers["Content-Security-Policy"] = csp
     return response
 
 # Routers
