@@ -10,6 +10,8 @@ async def test_root_endpoint(client):
     assert data["service"] == settings.SERVICE_NAME
     assert data["version"] == settings.SERVICE_VERSION
     assert data["status"] == "operational"
+    # In testing environment, docs should be hidden
+    assert data["documentation_url"] is None
     
     # Check Security Headers
     assert response.headers["Strict-Transport-Security"] == "max-age=63072000; includeSubDomains"
