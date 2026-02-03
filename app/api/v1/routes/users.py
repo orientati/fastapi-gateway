@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Request, Depends, Body
 from fastapi.responses import JSONResponse
 
-from app.api.deps import reusable_oauth2
+from app.api.deps import validate_token, reusable_oauth2
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
@@ -26,148 +26,88 @@ class ChangePasswordReq(BaseModel):
 
 @router.post("/change_password", response_model=ChangePasswordResponse)
 @limiter.limit("5/minute")
-async def change_password(request: Request, passwords: ChangePasswordReq = Body(...), token: str = Depends(reusable_oauth2)):
-    try:
-        payload = await auth.verify_token(token)
-        changed = await users.change_password(passwords, payload["user_id"])
-        if changed:
-            return ChangePasswordResponse()
-        else:
-            raise OrientatiException(
-                status_code=HttpCodes.BAD_REQUEST,
-                message="Password change failed",
-                details={"message": "Password change failed due to unknown reasons"},
-                url="users/change_password"
-            )
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
+async def change_password(request: Request, passwords: ChangePasswordReq = Body(...), payload: dict = Depends(validate_token)):
+    changed = await users.change_password(passwords, payload["user_id"])
+    if changed:
+        return ChangePasswordResponse()
+    else:
+        raise OrientatiException(
+            status_code=HttpCodes.BAD_REQUEST,
+            message="Password change failed",
+            details={"message": "Password change failed due to unknown reasons"},
+            url="users/change_password"
         )
+
 
 
 @router.patch("/", response_model=UpdateUserRequest)
 @limiter.limit("20/minute")
-async def update_user_self(request: Request, new_data: UpdateUserRequest = Body(...), token: str = Depends(reusable_oauth2)):
-    try:
-        payload = await auth.verify_token(token)
-        return await users.update_user(payload["user_id"], new_data)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+async def update_user_self(request: Request, new_data: UpdateUserRequest = Body(...), payload: dict = Depends(validate_token)):
+    return await users.update_user(payload["user_id"], new_data)
+
 
 
 @router.patch("/{user_id}", response_model=UpdateUserRequest)
 @limiter.limit("20/minute")
-async def update_user(request: Request, user_id: int, new_data: UpdateUserRequest = Body(...), token: str = Depends(reusable_oauth2)):
-    try:
-        # TODO: verificare che l'utente abbia i permessi per modificare un altro utente
-        payload = await auth.verify_token(token)
-        if payload["user_id"] != user_id:
-             raise OrientatiException(
-                status_code=HttpCodes.FORBIDDEN,
-                message="Forbidden",
-                details={"message": "You are not allowed to update this user"},
-                url=f"users/{user_id}"
-            )
-        return await users.update_user(user_id, new_data)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
+async def update_user(request: Request, user_id: int, new_data: UpdateUserRequest = Body(...), payload: dict = Depends(validate_token)):
+    # TODO: verificare che l'utente abbia i permessi per modificare un altro utente
+    if payload["user_id"] != user_id:
+            raise OrientatiException(
+            status_code=HttpCodes.FORBIDDEN,
+            message="Forbidden",
+            details={"message": "You are not allowed to update this user"},
+            url=f"users/{user_id}"
         )
+    return await users.update_user(user_id, new_data)
+
 
 
 @router.delete("/{user_id}", response_model=DeleteUserResponse)
 @limiter.limit("5/minute")
-async def delete_user(request: Request, user_id: int, token: str = Depends(reusable_oauth2)):
-    try:
-        # TODO: verificare che l'utente abbia i permessi per eliminare un altro utente
-        payload = await auth.verify_token(token)
-        if payload["user_id"] != user_id:
-             raise OrientatiException(
-                status_code=HttpCodes.FORBIDDEN,
-                message="Forbidden",
-                details={"message": "You are not allowed to delete this user"},
-                url=f"users/{user_id}"
-            )
-        return await users.delete_user(user_id)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
+async def delete_user(request: Request, user_id: int, payload: dict = Depends(validate_token)):
+    # TODO: verificare che l'utente abbia i permessi per eliminare un altro utente
+    if payload["user_id"] != user_id:
+            raise OrientatiException(
+            status_code=HttpCodes.FORBIDDEN,
+            message="Forbidden",
+            details={"message": "You are not allowed to delete this user"},
+            url=f"users/{user_id}"
         )
+    return await users.delete_user(user_id)
 
 
 
-# funzione che restituisce se l'utente che la sta chiamando ha la email verificata
+
 @router.get("/email_status")
 @limiter.limit("60/minute")
-async def email_status(request: Request, token: str = Depends(reusable_oauth2), db: AsyncSession = Depends(get_db)):
-    try:
-        payload = await auth.verify_token(token) #TODO: verificare il token
-        is_verified = await users.get_email_status_from_token(token, db)
+async def email_status(request: Request, token: str = Depends(reusable_oauth2), payload: dict = Depends(validate_token), db: AsyncSession = Depends(get_db)):
+    is_verified = await users.get_email_status_from_token(token, db)
 
-        return JSONResponse(
-            status_code=HttpCodes.OK,
-            content={
-                "status": "verified" if is_verified else "not verified",
-            }
-        )
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return JSONResponse(
+        status_code=HttpCodes.OK,
+        content={
+            "status": "verified" if is_verified else "not verified",
+        }
+    )
+
 
 
 @router.get("/verify_email")
 @limiter.limit("10/minute")
 async def verify_email(request: Request, token: str):
-    try:
-        verified = await users.verify_email(token)
-        if verified:
-            return JSONResponse(
-                status_code=HttpCodes.OK,
-                content={
-                    "message": "Email verified successfully"
-                }
-            )
-        else:
-            raise OrientatiException(
-                status_code=HttpCodes.BAD_REQUEST,
-                message="Email verification failed",
-                details={"message": "Email verification failed due to unknown reasons"},
-                url="users/verify_email"
-            )
-    except OrientatiException as e:
+    verified = await users.verify_email(token)
+    if verified:
         return JSONResponse(
-            status_code=e.status_code,
+            status_code=HttpCodes.OK,
             content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
+                "message": "Email verified successfully"
             }
         )
+    else:
+        raise OrientatiException(
+            status_code=HttpCodes.BAD_REQUEST,
+            message="Email verification failed",
+            details={"message": "Email verification failed due to unknown reasons"},
+            url="users/verify_email"
+        )
+

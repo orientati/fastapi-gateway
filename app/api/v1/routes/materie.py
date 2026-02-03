@@ -10,7 +10,7 @@ from app.schemas.materia import MateriaList, MateriaResponse, MateriaCreate, Mat
 from app.services import materie as materie_service
 from app.services.http_client import OrientatiException
 from app.core.limiter import limiter
-from app.api.deps import reusable_oauth2
+from app.api.deps import validate_token
 from fastapi import Request, Depends, Body
 
 router = APIRouter()
@@ -32,23 +32,13 @@ async def get_materie(
     Returns:
         MateriaList: Lista delle materie con metadati di paginazione
     """
-    try:
-        return await materie_service.get_materie(
-            limit=limit,
-            offset=offset,
-            search=search,
-            sort_by=sort_by,
-            order=order
-        )
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await materie_service.get_materie(
+        limit=limit,
+        offset=offset,
+        search=search,
+        sort_by=sort_by,
+        order=order
+    )
 
 
 @router.get("/{materia_id}", response_model=MateriaResponse)
@@ -63,22 +53,12 @@ async def get_materia_by_id(request: Request, materia_id: int):
     Returns:
         MateriaResponse: Dettagli della materia
     """
-    try:
-        return await materie_service.get_materia_by_id(materia_id)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await materie_service.get_materia_by_id(materia_id)
 
 
 @router.post("/", response_model=MateriaResponse)
 @limiter.limit("10/minute")
-async def post_materia(request: Request, materia: MateriaCreate = Body(...), token: str = Depends(reusable_oauth2)):
+async def post_materia(request: Request, materia: MateriaCreate = Body(...), payload: dict = Depends(validate_token)):
     """
     Crea una nuova materia.
 
@@ -88,22 +68,12 @@ async def post_materia(request: Request, materia: MateriaCreate = Body(...), tok
     Returns:
         MateriaResponse: Dettagli della materia creata
     """
-    try:
-        return await materie_service.post_materia(materia)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await materie_service.post_materia(materia)
 
 
 @router.put("/{materia_id}", response_model=MateriaResponse)
 @limiter.limit("10/minute")
-async def put_materia(request: Request, materia_id: int, materia: MateriaUpdate = Body(...), token: str = Depends(reusable_oauth2)):
+async def put_materia(request: Request, materia_id: int, materia: MateriaUpdate = Body(...), payload: dict = Depends(validate_token)):
     """
     Aggiorna i dettagli di una materia esistente.
 
@@ -114,22 +84,12 @@ async def put_materia(request: Request, materia_id: int, materia: MateriaUpdate 
     Returns:
         MateriaResponse: Dettagli della materia aggiornata
     """
-    try:
-        return await materie_service.put_materia(materia_id, materia)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await materie_service.put_materia(materia_id, materia)
 
 
 @router.delete("/{materia_id}", response_model=dict)
 @limiter.limit("5/minute")
-async def delete_materia(request: Request, materia_id: int, token: str = Depends(reusable_oauth2)):
+async def delete_materia(request: Request, materia_id: int, payload: dict = Depends(validate_token)):
     """
     Elimina una materia esistente.
 
@@ -139,23 +99,13 @@ async def delete_materia(request: Request, materia_id: int, token: str = Depends
     Returns:
         MateriaResponse: Dettagli della materia eliminata
     """
-    try:
-        return await materie_service.delete_materia(materia_id)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await materie_service.delete_materia(materia_id)
 
 
 @router.post("/link-indirizzo/{materia_id}/{indirizzo_id}")
 @limiter.limit("10/minute")
 async def link_materia_to_indirizzo(request: Request, materia_id: int, indirizzo_id:
-int, token: str = Depends(reusable_oauth2)):
+int, payload: dict = Depends(validate_token)):
     """
     Collega una materia a un indirizzo di studio.
 
@@ -163,22 +113,12 @@ int, token: str = Depends(reusable_oauth2)):
         materia_id (int): ID della materia da collegare
         indirizzo_id (int): ID dell'indirizzo di studio a cui collegare la materia
     """
-    try:
-        return await materie_service.link_materia_to_indirizzo(materia_id, indirizzo_id)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await materie_service.link_materia_to_indirizzo(materia_id, indirizzo_id)
 
 
 @router.delete("/unlink-indirizzo/{materia_id}/{indirizzo_id}")
 @limiter.limit("10/minute")
-async def unlink_materia_from_indirizzo(request: Request, materia_id: int, indirizzo_id: int, token: str = Depends(reusable_oauth2)):
+async def unlink_materia_from_indirizzo(request: Request, materia_id: int, indirizzo_id: int, payload: dict = Depends(validate_token)):
     """
     Scollega una materia da un indirizzo di studio.
 
@@ -186,15 +126,5 @@ async def unlink_materia_from_indirizzo(request: Request, materia_id: int, indir
         materia_id (int): ID della materia da scollegare
         indirizzo_id (int): ID dell'indirizzo di studio da cui scollegare la materia
     """
-    try:
-        return await materie_service.unlink_materia_from_indirizzo(materia_id, indirizzo_id)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await materie_service.unlink_materia_from_indirizzo(materia_id, indirizzo_id)
    

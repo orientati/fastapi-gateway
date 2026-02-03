@@ -10,7 +10,7 @@ from app.schemas.citta import CittaList, CittaResponse, CittaUpdate, CittaCreate
 from app.services import citta as citta_service
 from app.services.http_client import OrientatiException
 from app.core.limiter import limiter
-from app.api.deps import reusable_oauth2
+from app.api.deps import validate_token
 from fastapi import Request, Depends, Body
 
 router = APIRouter()
@@ -33,23 +33,13 @@ async def get_citta(
     Returns:
         CittaList: Lista degli indirizzi con metadati di paginazione
     """
-    try:
-        return await citta_service.get_citta(
-            limit=limit,
-            offset=offset,
-            search=search,
-            sort_by=sort_by,
-            order=order
-        )
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await citta_service.get_citta(
+        limit=limit,
+        offset=offset,
+        search=search,
+        sort_by=sort_by,
+        order=order
+    )
 
 
 @router.get("/{citta_id}", response_model=CittaResponse)
@@ -64,17 +54,7 @@ async def get_citta_by_id(request: Request, citta_id: int):
     Returns:
         CittaResponse: Dettagli della città
     """
-    try:
-        return await citta_service.get_citta_by_id(citta_id)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await citta_service.get_citta_by_id(citta_id)
 
 
 @router.get("/zipcode/{zipcode}", response_model=CittaResponse)
@@ -89,22 +69,12 @@ async def get_citta_by_zipcode(request: Request, zipcode: str):
     Returns:
         CittaResponse: Dettagli della città
     """
-    try:
-        return await citta_service.get_citta_by_zipcode(zipcode)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await citta_service.get_citta_by_zipcode(zipcode)
 
 
 @router.post("/", response_model=CittaResponse)
 @limiter.limit("10/minute")
-async def post_citta(request: Request, citta: CittaCreate = Body(...), token: str = Depends(reusable_oauth2)):
+async def post_citta(request: Request, citta: CittaCreate = Body(...), payload: dict = Depends(validate_token)):
     """
     Crea una nuova città.
 
@@ -114,22 +84,12 @@ async def post_citta(request: Request, citta: CittaCreate = Body(...), token: st
     Returns:
         CittaResponse: Dettagli della città creata
     """
-    try:
-        return await citta_service.post_citta(citta)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await citta_service.post_citta(citta)
 
 
 @router.put("/{citta_id}", response_model=CittaResponse)
 @limiter.limit("10/minute")
-async def put_citta(request: Request, citta_id: int, citta: CittaUpdate = Body(...), token: str = Depends(reusable_oauth2)):
+async def put_citta(request: Request, citta_id: int, citta: CittaUpdate = Body(...), payload: dict = Depends(validate_token)):
     """
     Aggiorna i dettagli di una città esistente.
 
@@ -140,22 +100,12 @@ async def put_citta(request: Request, citta_id: int, citta: CittaUpdate = Body(.
     Returns:
         CittaResponse: Dettagli della città aggiornata
     """
-    try:
-        return await citta_service.put_citta(citta_id, citta)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await citta_service.put_citta(citta_id, citta)
 
 
 @router.delete("/{citta_id}")
 @limiter.limit("5/minute")
-async def delete_citta(request: Request, citta_id: int, token: str = Depends(reusable_oauth2)):
+async def delete_citta(request: Request, citta_id: int, payload: dict = Depends(validate_token)):
     """
     Elimina una città esistente.
 
@@ -165,15 +115,5 @@ async def delete_citta(request: Request, citta_id: int, token: str = Depends(reu
     Returns:
         MateriaResponse: Dettagli della materia eliminata
     """
-    try:
-        return await citta_service.delete_citta(citta_id)
-    except OrientatiException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content={
-                "message": e.message,
-                "details": e.details,
-                "url": e.url
-            }
-        )
+    return await citta_service.delete_citta(citta_id)
    
