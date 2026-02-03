@@ -7,7 +7,9 @@ def get_remote_address_unsafe(request: Request):
 
 from app.core.config import settings
 
-def get_redis_uri():
+def get_limiter_storage_uri():
+    if settings.ENVIRONMENT == "testing":
+        return "memory://"
     return f"redis://{settings.REDIS_USER}:{settings.REDIS_PASSWORD}@{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}"
 
-limiter = Limiter(key_func=get_remote_address_unsafe, storage_uri=get_redis_uri(), enabled=True)
+limiter = Limiter(key_func=get_remote_address_unsafe, storage_uri=get_limiter_storage_uri(), enabled=True)

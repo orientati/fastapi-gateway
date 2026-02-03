@@ -1,6 +1,12 @@
+import os
 import pytest
 from unittest.mock import patch, AsyncMock
+
+# Set testing environment before importing app
+os.environ["GATEWAY_ENVIRONMENT"] = "testing"
+
 from httpx import AsyncClient, ASGITransport
+
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -84,6 +90,9 @@ def mock_redis():
         instance.set_session = AsyncMock()
         instance.revoke_user_sessions = AsyncMock()
         yield mock
+
+
+
 
 @pytest.fixture(scope="function")
 async def client(db_session):
