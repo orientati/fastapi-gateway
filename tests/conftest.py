@@ -85,6 +85,24 @@ def mock_redis():
         instance.revoke_user_sessions = AsyncMock()
         yield mock
 
+@pytest.fixture(scope="function", autouse=True)
+def mock_limiter():
+    from app.core.limiter import limiter
+    # Use MemoryStorage for tests to avoid Redis connection errors
+    # We dynamically switch the storage backend of the global limiter instance
+    original_storage = limiter.limiter.storage
+    
+    # We need to import MemoryStorage. 
+    # slowapi uses the 'limits' library under the hood.
+    from limits.storage import MemoryStorage
+    limiter.limiter.storage = MemoryStorage()
+    
+    yield
+    
+    # Restore original storage
+    limiter.limiter.storage = original_storage
+
+
 @pytest.fixture(scope="function")
 async def client(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
