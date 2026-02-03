@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 from typing import Optional
 
@@ -11,7 +11,7 @@ from app.services import indirizzi as indirizzi_service
 from app.services.http_client import OrientatiException
 from app.core.limiter import limiter
 from app.api.deps import reusable_oauth2
-from fastapi import Request, Depends
+from fastapi import Request, Depends, Body
 
 router = APIRouter()
 
@@ -79,7 +79,7 @@ async def get_indirizzo_by_id(request: Request, indirizzo_id: int):
 
 @router.post("/", response_model=IndirizzoResponse)
 @limiter.limit("10/minute")
-async def post_indirizzo(request: Request, indirizzo: IndirizzoCreate, token: str = Depends(reusable_oauth2)):
+async def post_indirizzo(request: Request, indirizzo: IndirizzoCreate = Body(...), token: str = Depends(reusable_oauth2)):
     """
     Crea un nuovo indirizzo di studio.
 
@@ -130,7 +130,7 @@ async def delete_indirizzo(request: Request, indirizzo_id: int, token: str = Dep
 
 @router.put("/{indirizzo_id}", response_model=IndirizzoResponse)
 @limiter.limit("10/minute")
-async def put_indirizzo(request: Request, indirizzo_id: int, indirizzo: IndirizzoUpdate, token: str = Depends(reusable_oauth2)):
+async def put_indirizzo(request: Request, indirizzo_id: int, indirizzo: IndirizzoUpdate = Body(...), token: str = Depends(reusable_oauth2)):
     """
     Aggiorna i dettagli di un indirizzo di studio esistente.
 

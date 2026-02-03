@@ -8,7 +8,7 @@ from sqlalchemy import select
 from app.db.session import get_db, AsyncSessionLocal
 from app.models.session import Session
 from app.models.user import User
-from app.schemas.users import ChangePasswordRequest, UpdateUserRequest, UpdateUserResponse, \
+from app.schemas.users import ChangePasswordReq, UpdateUserRequest, UpdateUserResponse, \
     DeleteUserResponse
 from app.services.auth import get_session_id_from_token
 from app.services.http_client import OrientatiException, HttpMethod, HttpUrl, HttpParams, send_request
@@ -24,7 +24,7 @@ RABBIT_UPDATE_TYPE = "UPDATE"
 RABBIT_CREATE_TYPE = "CREATE"
 
 
-async def change_password(passwords: ChangePasswordRequest, user_id: int) -> bool:
+async def change_password(passwords: ChangePasswordReq, user_id: int) -> bool:
     try:
         old_password_hashed = pwd_context.hash(passwords.old_password)
         new_password_hashed = pwd_context.hash(passwords.new_password)
@@ -114,7 +114,7 @@ async def update_from_rabbitMQ(message):
                         )
                         db.add(user)
                         await db.commit()
-                        logger.error(f"User with id {data['id']} not found during update. Created new user.")
+                        logger.warning(f"User with id {data['id']} not found during update. Created new user.")
                         return
                     user.email = data["email"]
                     user.email_verified = data["email_verified"]

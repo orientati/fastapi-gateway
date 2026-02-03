@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 from typing import Optional
 
@@ -11,7 +11,7 @@ from app.services import citta as citta_service
 from app.services.http_client import OrientatiException
 from app.core.limiter import limiter
 from app.api.deps import reusable_oauth2
-from fastapi import Request, Depends
+from fastapi import Request, Depends, Body
 
 router = APIRouter()
 
@@ -104,7 +104,7 @@ async def get_citta_by_zipcode(request: Request, zipcode: str):
 
 @router.post("/", response_model=CittaResponse)
 @limiter.limit("10/minute")
-async def post_citta(request: Request, citta: CittaCreate, token: str = Depends(reusable_oauth2)):
+async def post_citta(request: Request, citta: CittaCreate = Body(...), token: str = Depends(reusable_oauth2)):
     """
     Crea una nuova città.
 
@@ -129,7 +129,7 @@ async def post_citta(request: Request, citta: CittaCreate, token: str = Depends(
 
 @router.put("/{citta_id}", response_model=CittaResponse)
 @limiter.limit("10/minute")
-async def put_citta(request: Request, citta_id: int, citta: CittaUpdate, token: str = Depends(reusable_oauth2)):
+async def put_citta(request: Request, citta_id: int, citta: CittaUpdate = Body(...), token: str = Depends(reusable_oauth2)):
     """
     Aggiorna i dettagli di una città esistente.
 

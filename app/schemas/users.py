@@ -1,7 +1,6 @@
-from __future__ import annotations
 from pydantic import BaseModel
 
-class ChangePasswordRequest(BaseModel):
+class ChangePasswordReq(BaseModel):
     old_password: str
     new_password: str
 

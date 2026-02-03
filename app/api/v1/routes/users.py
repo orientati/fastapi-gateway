@@ -1,6 +1,8 @@
-from __future__ import annotations
 
-from fastapi import APIRouter, Request, Depends
+
+from typing import Annotated
+from pydantic import BaseModel
+from fastapi import APIRouter, Request, Depends, Body
 from fastapi.responses import JSONResponse
 
 from app.api.deps import reusable_oauth2
@@ -10,7 +12,7 @@ from app.db.session import get_db
 
 from app.core.logging import get_logger
 from app.core.limiter import limiter
-from app.schemas.users import ChangePasswordRequest, ChangePasswordResponse, UpdateUserRequest, DeleteUserResponse
+from app.schemas.users import ChangePasswordResponse, UpdateUserRequest, DeleteUserResponse
 from app.services import users, auth
 from app.services.http_client import OrientatiException, HttpCodes
 
@@ -18,9 +20,13 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+class ChangePasswordReq(BaseModel):
+    old_password: str
+    new_password: str
+
 @router.post("/change_password", response_model=ChangePasswordResponse)
 @limiter.limit("5/minute")
-async def change_password(request: Request, passwords: ChangePasswordRequest, token: str = Depends(reusable_oauth2)):
+async def change_password(request: Request, passwords: ChangePasswordReq = Body(...), token: str = Depends(reusable_oauth2)):
     try:
         payload = await auth.verify_token(token)
         changed = await users.change_password(passwords, payload["user_id"])
@@ -46,7 +52,7 @@ async def change_password(request: Request, passwords: ChangePasswordRequest, to
 
 @router.patch("/", response_model=UpdateUserRequest)
 @limiter.limit("20/minute")
-async def update_user_self(request: Request, new_data: UpdateUserRequest, token: str = Depends(reusable_oauth2)):
+async def update_user_self(request: Request, new_data: UpdateUserRequest = Body(...), token: str = Depends(reusable_oauth2)):
     try:
         payload = await auth.verify_token(token)
         return await users.update_user(payload["user_id"], new_data)
@@ -63,7 +69,7 @@ async def update_user_self(request: Request, new_data: UpdateUserRequest, token:
 
 @router.patch("/{user_id}", response_model=UpdateUserRequest)
 @limiter.limit("20/minute")
-async def update_user(request: Request, user_id: int, new_data: UpdateUserRequest, token: str = Depends(reusable_oauth2)):
+async def update_user(request: Request, user_id: int, new_data: UpdateUserRequest = Body(...), token: str = Depends(reusable_oauth2)):
     try:
         # TODO: verificare che l'utente abbia i permessi per modificare un altro utente
         payload = await auth.verify_token(token)
