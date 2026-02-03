@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 from typing import Optional
 
@@ -11,7 +11,7 @@ from app.services import school as school_service
 from app.services.http_client import OrientatiException
 from app.core.limiter import limiter
 from app.api.deps import reusable_oauth2
-from fastapi import Request, Depends
+from fastapi import Request, Depends, Body
 
 router = APIRouter()
 
@@ -99,7 +99,7 @@ async def get_school(request: Request, school_id: int):
 
 @router.post("/", response_model=SchoolResponse, status_code=201)
 @limiter.limit("10/minute")
-async def post_school(request: Request, school: SchoolCreate, token: str = Depends(reusable_oauth2)):
+async def post_school(request: Request, school: SchoolCreate = Body(...), token: str = Depends(reusable_oauth2)):
     """
     Crea una nuova scuola.
 
@@ -118,7 +118,7 @@ async def post_school(request: Request, school: SchoolCreate, token: str = Depen
 
 @router.put("/{school_id}", response_model=SchoolResponse)
 @limiter.limit("10/minute")
-async def put_school(request: Request, school_id: int, school: SchoolUpdate, token: str = Depends(reusable_oauth2)):
+async def put_school(request: Request, school_id: int, school: SchoolUpdate = Body(...), token: str = Depends(reusable_oauth2)):
     """
     Aggiorna i dettagli di una scuola esistente.
 

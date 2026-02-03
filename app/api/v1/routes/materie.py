@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 from typing import Optional
 
@@ -11,7 +11,7 @@ from app.services import materie as materie_service
 from app.services.http_client import OrientatiException
 from app.core.limiter import limiter
 from app.api.deps import reusable_oauth2
-from fastapi import Request, Depends
+from fastapi import Request, Depends, Body
 
 router = APIRouter()
 
@@ -78,7 +78,7 @@ async def get_materia_by_id(request: Request, materia_id: int):
 
 @router.post("/", response_model=MateriaResponse)
 @limiter.limit("10/minute")
-async def post_materia(request: Request, materia: MateriaCreate, token: str = Depends(reusable_oauth2)):
+async def post_materia(request: Request, materia: MateriaCreate = Body(...), token: str = Depends(reusable_oauth2)):
     """
     Crea una nuova materia.
 
@@ -103,7 +103,7 @@ async def post_materia(request: Request, materia: MateriaCreate, token: str = De
 
 @router.put("/{materia_id}", response_model=MateriaResponse)
 @limiter.limit("10/minute")
-async def put_materia(request: Request, materia_id: int, materia: MateriaUpdate, token: str = Depends(reusable_oauth2)):
+async def put_materia(request: Request, materia_id: int, materia: MateriaUpdate = Body(...), token: str = Depends(reusable_oauth2)):
     """
     Aggiorna i dettagli di una materia esistente.
 
