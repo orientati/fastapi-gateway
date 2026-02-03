@@ -52,6 +52,55 @@ exchanges = {
     "auth.events": auth_service.handle_session_revocation
 }
 
+from fastapi.exceptions import RequestValidationError
+from app.services.http_client import OrientatiException
+
+async def orientati_exception_handler(request: Request, exc: OrientatiException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "message": exc.message,
+            "details": exc.details,
+            "url": exc.url
+        }
+    )
+
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Sanitize validation errors for security (avoid leaking internal schema details if possible, 
+    # though standard pydantic errors are usually fine, but let's be concise)
+    errors = []
+    for error in exc.errors():
+        # Keep it simple and safe
+        errors.append({
+            "loc": error.get("loc"),
+            "msg": error.get("msg"),
+            "type": error.get("type")
+        })
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "message": "Validation Error",
+            "details": errors,
+            "url": str(request.url)
+        }
+    )
+
+async def global_exception_handler(request: Request, exc: Exception):
+    # Log the full traceback internally
+    logger.error(f"Global exception: {exc}", exc_info=True)
+    
+    # Return a generic safe message to the user
+    return JSONResponse(
+        status_code=500,
+        content={
+            "message": "Internal Server Error",
+            "details": {"code": "INTERNAL_ERROR"}, # Opaque code
+            "url": str(request.url)
+        }
+    )
+
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,6 +111,8 @@ async def lifespan(app: FastAPI):
     # Inizializza il client HTTP condiviso
     from app.services.http_client import init_client, close_client
     await init_client()
+
+
 
     # Avvia il broker asincrono all'avvio dell'app
     broker_instance = broker.AsyncBrokerSingleton()
@@ -111,6 +162,11 @@ app = FastAPI(
     redoc_url=redoc_url,
 
 )
+
+# Register Exception Handlers
+app.add_exception_handler(OrientatiException, orientati_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, global_exception_handler)
 
 # Configurazione Rate Limiter
 app.state.limiter = limiter
