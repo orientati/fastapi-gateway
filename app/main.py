@@ -16,6 +16,7 @@ from slowapi import _rate_limit_exceeded_handler
 from sentry_sdk.integrations.httpx import HttpxIntegration
 
 from app.api.v1.routes import auth, users, school, materie, indirizzi, citta, websockets
+from app.schemas.root import RootResponse
 from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
 from app.core.limiter import limiter
@@ -124,6 +125,9 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=(), payment=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none';"
     return response
 
 # Routers
@@ -179,6 +183,22 @@ app.add_middleware(
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+
+@app.get("/", response_model=RootResponse, tags=["root"])
+@limiter.limit("5/minute")
+async def root(request: Request):
+    """
+    Root endpoint for the API.
+    Provides basic service information and checks that the system is reachable.
+    """
+    return {
+        "service": settings.SERVICE_NAME,
+        "version": settings.SERVICE_VERSION,
+        "status": "operational",
+        "documentation_url": None if settings.ENVIRONMENT == "production" else "/docs"
+    }
+
 
 
 @app.get("/health", tags=["health"])
