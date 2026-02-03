@@ -17,7 +17,9 @@ async def test_root_endpoint(client):
     assert response.headers["X-Frame-Options"] == "DENY"
     assert response.headers["Referrer-Policy"] == "no-referrer"
     assert "geolocation=()" in response.headers["Permissions-Policy"]
-    assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
+    assert "cdn.jsdelivr.net" in response.headers["Content-Security-Policy"]
+    assert "unsafe-inline" in response.headers["Content-Security-Policy"]
+
 
 @pytest.mark.anyio
 async def test_root_endpoint_rate_limit(client):
