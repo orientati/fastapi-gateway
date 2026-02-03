@@ -99,8 +99,8 @@ async def lifespan(app: FastAPI):
     logger.info("Client HTTP chiuso.")
 
 
-docs_url = None if settings.ENVIRONMENT == "production" else "/docs"
-redoc_url = None if settings.ENVIRONMENT == "production" else "/redoc"
+docs_url = "/docs" if settings.ENVIRONMENT == "development" else None
+redoc_url = "/redoc" if settings.ENVIRONMENT == "development" else None
 
 app = FastAPI(
     title=settings.SERVICE_NAME,
@@ -205,7 +205,7 @@ async def root(request: Request):
         "service": settings.SERVICE_NAME,
         "version": settings.SERVICE_VERSION,
         "status": "operational",
-        "documentation_url": None if settings.ENVIRONMENT == "production" else "/docs"
+        "documentation_url": "/docs" if settings.ENVIRONMENT == "development" else None
     }
 
 
