@@ -9,7 +9,7 @@ import sentry_sdk
 from fastapi import FastAPI, APIRouter, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import ORJSONResponse
+from fastapi.responses import ORJSONResponse, JSONResponse
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
@@ -43,7 +43,8 @@ sentry_sdk.init(
 
 sentry_sdk.set_tag("service.name", "fastapi-gateway")
 
-logger = None
+setup_logging()
+logger = get_logger(__name__)
 
 # RabbitMQ Broker
 
@@ -124,23 +125,20 @@ async def lifespan(app: FastAPI):
         logger.error("Failed to connect to Redis. Exiting...")
         sys.exit(1)
     
-    connected = False
-    for i in range(settings.RABBITMQ_CONNECTION_RETRIES):
-        logger.info(f"Connessione a RabbitMQ (tentativo {i + 1}/{settings.RABBITMQ_CONNECTION_RETRIES})...")
-        connected = await broker_instance.connect()
-        if connected:
-            break
-        logger.warning(f"Impossibile connettersi a RabbitMQ. Riprovo tra {settings.RABBITMQ_CONNECTION_RETRY_DELAY} secondi...")
-        await asyncio.sleep(settings.RABBITMQ_CONNECTION_RETRY_DELAY)
+    # Connessione RabbitMQ (retry delegati al broker)
+    logger.info("Connecting to RabbitMQ...")
+    connected = await broker_instance.connect(
+        retries=settings.RABBITMQ_CONNECTION_RETRIES,
+        delay=settings.RABBITMQ_CONNECTION_RETRY_DELAY
+    )
 
     if not connected:
         logger.error("Impossibile connettersi a RabbitMQ dopo molteplici tentativi. Uscita...")
         sys.exit(1)
 
-    else:
-        logger.info("Connesso a RabbitMQ.")
-        for exchange, cb in exchanges.items():
-            await broker_instance.subscribe(exchange, cb)
+    logger.info("Connesso a RabbitMQ.")
+    for exchange, cb in exchanges.items():
+        await broker_instance.subscribe(exchange, cb)
     yield
     logger.info(f"Chiusura {settings.SERVICE_NAME}...")
     await broker_instance.close()
