@@ -6,7 +6,7 @@ authors = [
     {name = "Federico Zorgnotto",email = "f.zorgnotto.2759@vallauri.edu"}
 ]
 readme = "README.md"
-requires-python = ">=3.13,<4.0"
+requires-python = ">=3.11,<4.0"
 dependencies = [
     "fastapi (>=0.116.1,<0.117.0)",
     "uvicorn (>=0.35.0,<0.36.0)",
@@ -29,6 +29,7 @@ dependencies = [
     "slowapi (>=0.1.9,<0.2.0)",
     "aiosqlite (>=0.21.0,<0.22.0)",
     "redis (>=5.2.1,<6.0.0)",
+    "async-timeout (>=4.0.3)",
 ]
 
 [build-system]
