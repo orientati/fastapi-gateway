@@ -10,7 +10,7 @@ services:
 
   gateway-migrate:
     build: .
-    command: alembic upgrade head # sovrascrive il comando di avvio eseguendo solo le migrazioni
+    command: [ "python3", "-m", "alembic", "upgrade", "head" ]
     depends_on:
       - gateway_db
     networks:
@@ -21,7 +21,7 @@ services:
 
   gateway:
     build: .
-    command: gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:8000 --workers 1
+    command: [ "python3", "-m", "gunicorn", "-k", "uvicorn.workers.UvicornWorker", "app.main:app", "--bind", "0.0.0.0:8000", "--workers", "1" ]
     ports:
       - "8000:8000"
     depends_on:
